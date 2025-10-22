@@ -7,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Star, X, Upload, MapPin } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
 
 interface MarkerReviewDialogProps {
   open: boolean;
@@ -38,7 +37,6 @@ export function MarkerReviewDialog({
   const [address, setAddress] = useState('');
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     if (open && markerPosition) {
@@ -65,6 +63,16 @@ export function MarkerReviewDialog({
     }
   };
 
+  const showToast = (title: string, description: string, variant: 'default' | 'destructive' = 'default') => {
+    // Простая реализация toast, можно заменить на любую библиотеку
+    if (variant === 'destructive') {
+      console.error(`Toast (Error): ${title} - ${description}`);
+      alert(`Ошибка: ${title}\n${description}`);
+    } else {
+      console.log(`Toast: ${title} - ${description}`);
+    }
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
@@ -79,11 +87,7 @@ export function MarkerReviewDialog({
         const video = document.createElement('video');
         video.onloadedmetadata = () => {
           if (video.duration > 30) {
-            toast({
-              title: 'Ошибка',
-              description: 'Видео должно быть не длиннее 30 секунд',
-              variant: 'destructive',
-            });
+            showToast('Ошибка', 'Видео должно быть не длиннее 30 секунд', 'destructive');
           } else {
             setNewMedia((prev: MediaItem[]) => [
               ...prev,
@@ -112,20 +116,12 @@ export function MarkerReviewDialog({
 
   const handleSubmit = () => {
     if (rating === 0) {
-      toast({
-        title: 'Ошибка',
-        description: 'Пожалуйста, поставьте оценку',
-        variant: 'destructive',
-      });
+      showToast('Ошибка', 'Пожалуйста, поставьте оценку', 'destructive');
       return;
     }
 
     if (comment.trim() === '') {
-      toast({
-        title: 'Ошибка',
-        description: 'Пожалуйста, добавьте комментарий',
-        variant: 'destructive',
-      });
+      showToast('Ошибка', 'Пожалуйста, добавьте комментарий', 'destructive');
       return;
     }
 

@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Star, X, Upload, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { ReviewMedia } from '@/lib/types';
+
 
 interface MarkerReviewDialogProps {
   open: boolean;
@@ -22,11 +24,6 @@ interface MarkerReviewDialogProps {
   }) => void;
 }
 
-type MediaItem = {
-  type: 'image' | 'video';
-  url: string;
-};
-
 export function MarkerReviewDialog({
   open,
   onOpenChange,
@@ -35,7 +32,7 @@ export function MarkerReviewDialog({
 }: MarkerReviewDialogProps) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
-  const [newMedia, setNewMedia] = useState<MediaItem[]>([]);
+  const [newMedia, setNewMedia] = useState<ReviewMedia[]>([]);
   const [address, setAddress] = useState('');
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,7 +69,7 @@ export function MarkerReviewDialog({
 
     Array.from(files).forEach((file) => {
       if (file.type.startsWith('image/')) {
-        setNewMedia((prev: MediaItem[]) => [
+        setNewMedia((prev: ReviewMedia[]) => [
           ...prev,
           { type: 'image', url: URL.createObjectURL(file) },
         ]);
@@ -86,10 +83,7 @@ export function MarkerReviewDialog({
               variant: 'destructive',
             });
           } else {
-            setNewMedia((prev: MediaItem[]) => [
-              ...prev,
-              { type: 'video', url: URL.createObjectURL(file) },
-            ]);
+            setNewMedia((prev: ReviewMedia[]) => [...prev, { type: 'video', url: URL.createObjectURL(file) }]);
           }
         };
         video.src = URL.createObjectURL(file);
@@ -103,7 +97,7 @@ export function MarkerReviewDialog({
   };
 
   const removeMedia = (index: number) => {
-    setNewMedia((prev: MediaItem[]) => {
+    setNewMedia((prev: ReviewMedia[]) => {
       const newMedia = [...prev];
       URL.revokeObjectURL(newMedia[index].url);
       newMedia.splice(index, 1);
@@ -285,3 +279,5 @@ export function MarkerReviewDialog({
     </Dialog>
   );
 }
+
+    
