@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "avatarUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the user's avatar image."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "admin"],
+          "description": "The user's role."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the user was created."
+        }
+      },
+      "required": ["uid", "name", "email", "role", "createdAt"]
+    },
+    "Marker": {
+      "title": "Marker",
+      "description": "A location marker on the map.",
+      "type": "object",
+      "properties": {
+        "lat": {
+          "type": "number",
+          "description": "The latitude of the marker."
+        },
+        "lng": {
+          "type": "number",
+          "description": "The longitude of the marker."
+        },
+        "country": {
+          "type": "string",
+          "description": "The country where the marker is located."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city where the marker is located."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The UID of the user who created the marker."
+        }
+      },
+      "required": ["lat", "lng", "createdBy"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A review for a specific marker.",
+      "type": "object",
+      "properties": {
+        "markerId": {
+          "type": "string",
+          "description": "The ID of the marker this review is for."
+        },
+        "authorId": {
+          "type": "string",
+          "description": "The UID of the user who wrote the review."
+        },
+        "authorName": {
+            "type": "string",
+            "description": "The name of the user who wrote the review."
+        },
+        "authorAvatarUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "The avatar URL of the user who wrote the review."
+        },
+        "text": {
+          "type": "string",
+          "description": "The content of the review."
+        },
+        "rating": {
+          "type": "number",
+          "description": "The rating from 1 to 5."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the review was created."
+        },
+        "media": {
+          "type": "array",
+          "description": "A list of media items attached to the review.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["image", "video"]
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": ["type", "url"]
+          }
+        }
+      },
+      "required": ["markerId", "authorId", "authorName", "text", "rating", "createdAt"]
+    }
+  },
+  "auth": {
+    "providers": ["email"]
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Stores user profile information."
+    },
+    "markers/{markerId}": {
+      "schema": {
+        "$ref": "#/entities/Marker"
+      },
+      "description": "Stores map markers."
+    },
+    "reviews/{reviewId}": {
+      "schema": {
+        "$ref": "#/entities/Review"
+      },
+      "description": "Stores all reviews for all markers."
+    }
+  }
+}

@@ -1,0 +1,48 @@
+import type { Metadata } from 'next';
+import './globals.css';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { AuthProvider } from '@/contexts/auth-context';
+import { Toaster } from '@/components/ui/toaster';
+import { Inter } from 'next/font/google';
+import { cn } from '@/lib/utils';
+import Head from 'next/head';
+import PreAlphaWarning from '@/components/pre-alpha-warning';
+import CookieConsentBanner from '@/components/cookie-consent-banner';
+
+const inter = Inter({ subsets: ['latin', 'cyrillic'] });
+
+export const metadata: Metadata = {
+  title: 'T-mapinc',
+  description: 'Интерактивная карта с отзывами пользователей',
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="ru" suppressHydrationWarning>
+       <Head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
+      </Head>
+      <body className={cn('antialiased font-body', inter.className)}>
+        <FirebaseClientProvider>
+          <AuthProvider>
+            <div className="flex flex-col min-h-screen">
+              <main className="flex-grow">{children}</main>
+              <footer className="bg-card border-t p-4 text-center text-sm text-muted-foreground">
+                <p>© {new Date().getFullYear()} T-mapinc. Все права защищены.</p>
+              </footer>
+            </div>
+            <Toaster />
+            <PreAlphaWarning />
+            <CookieConsentBanner />
+          </AuthProvider>
+        </FirebaseClientProvider>
+      </body>
+    </html>
+  );
+}

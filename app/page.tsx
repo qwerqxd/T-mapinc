@@ -1,0 +1,286 @@
+
+'use client';
+
+import { YMaps } from '@pbe/react-yandex-maps';
+import { useState } from 'react';
+import type { MarkerData, Review } from '@/lib/types';
+import AppHeader from '@/components/app-header';
+import ReviewsSidebar from '@/components/reviews-sidebar';
+import MapView from '@/components/map-view';
+import MarkerReviewDialog from '@/components/marker-review-dialog';
+import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
+
+// Helper function to calculate distance between two coordinates in meters
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3; // metres
+  const φ1 = (lat1 * Math.PI) / 180; // φ, λ in radians
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // in metres
+}
+
+export default function Home() {
+  const firestore = useFirestore();
+  const { data: markers, loading: markersLoading } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') : null);
+  const { data: reviews, loading: reviewsLoading } = useCollection<Review>(firestore ? collection(firestore, 'reviews') : null);
+  
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [newMarkerCoords, setNewMarkerCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [mapState, setMapState] = useState({
+    center: [55.751244, 37.618423],
+    zoom: 10,
+  });
+
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const handleMapClick = (lat: number, lng: number) => {
+    if (!user) {
+      toast({
+        title: 'Требуется аутентификация',
+        description: 'Вам нужно войти в систему, чтобы добавить метку.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!markers) return;
+
+    const nearbyMarker = markers.find(
+      (marker) => getDistance(marker.lat, marker.lng, lat, lng) < 500
+    );
+
+    if (nearbyMarker) {
+      setSelectedMarkerId(nearbyMarker.id);
+      toast({
+        title: 'Метка уже существует',
+        description: 'Рядом уже есть метка. Добавьте свой отзыв к ней.',
+      });
+    } else {
+      setSelectedMarkerId(null);
+      setNewMarkerCoords({ lat, lng });
+    }
+  };
+  
+  const handleReviewSelect = (markerId: string) => {
+    if (!markers) return;
+    const marker = markers.find(m => m.id === markerId);
+    if (marker) {
+      setMapState(prevState => ({ ...prevState, center: [marker.lat, marker.lng], zoom: 15 }));
+      setSelectedMarkerId(markerId);
+    }
+  };
+
+  const handleAddReview = (review: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => {
+    if (!user || !selectedMarkerId || !firestore) return;
+
+    const newReview = {
+      ...review,
+      authorId: user.uid,
+      authorName: user.name || 'Анонимный пользователь',
+      authorAvatarUrl: user.avatarUrl || null,
+      createdAt: serverTimestamp(),
+    };
+    
+    const reviewsCollection = collection(firestore, 'reviews');
+    addDoc(reviewsCollection, newReview).then(() => {
+        toast({ title: 'Успех', description: 'Ваш отзыв был отправлен.'});
+        // We don't close the dialog so user can see their new review.
+        setNewReviewText('');
+        setNewRating(0);
+        setNewMedia([]);
+    }).catch(serverError => {
+      const permissionError = new FirestorePermissionError({
+        path: reviewsCollection.path,
+        operation: 'create',
+        requestResourceData: newReview,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
+  };
+
+  const handleUpdateReview = (reviewToUpdate: Review, updatedData: { text: string; rating: number; media?: {type: 'image' | 'video', url: string}[] }) => {
+    if (!user || !firestore) return;
+    const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
+    
+    const dataToSave = {
+        ...reviewToUpdate,
+        ...updatedData,
+        createdAt: serverTimestamp(), // Update timestamp on edit
+    };
+
+    setDoc(reviewRef, dataToSave, { merge: true }).then(() => {
+        toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
+    }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: reviewRef.path,
+            operation: 'update',
+            requestResourceData: dataToSave,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+  };
+
+  const handleDeleteReview = async (reviewToDelete: Review) => {
+    if (!user || !firestore) {
+      toast({
+        title: 'Ошибка',
+        description: 'Вы должны войти в систему, чтобы удалить отзыв.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    const reviewRef = doc(firestore, 'reviews', reviewToDelete.id);
+
+    try {
+      await deleteDoc(reviewRef);
+      toast({ title: 'Успех', description: 'Ваш отзыв был удален.' });
+
+      // Check if it was the last review for the marker
+      const otherReviewsForMarker = reviews?.filter(
+        (r) => r.markerId === reviewToDelete.markerId && r.id !== reviewToDelete.id
+      );
+
+      if (otherReviewsForMarker && otherReviewsForMarker.length === 0) {
+        // This was the last review, so delete the marker as well
+        const markerRef = doc(firestore, 'markers', reviewToDelete.markerId);
+        try {
+          await deleteDoc(markerRef);
+          toast({ title: 'Успех', description: 'Последний отзыв и метка были удалены.' });
+        } catch(markerError) {
+           const permissionError = new FirestorePermissionError({
+              path: markerRef.path,
+              operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        }
+      }
+      closeDialogs();
+    } catch (error: any) {
+        const permissionError = new FirestorePermissionError({
+            path: reviewRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    }
+  };
+
+
+  const handleAddMarkerWithReview = (markerData: Omit<MarkerData, 'id'|'createdBy'>, reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+    if (!user || !newMarkerCoords || !firestore) return;
+    
+    const markersCollection = collection(firestore, 'markers');
+    const newMarkerRef = doc(markersCollection);
+    const newMarker = {
+      id: newMarkerRef.id,
+      ...markerData,
+      createdBy: user.uid,
+      lat: newMarkerCoords.lat,
+      lng: newMarkerCoords.lng,
+    };
+    
+    setDoc(newMarkerRef, newMarker).then(() => {
+        const reviewsCollection = collection(firestore, 'reviews');
+        const newReview = {
+          ...reviewData,
+          authorId: user.uid,
+          authorName: user.name || 'Анонимный пользователь',
+          authorAvatarUrl: user.avatarUrl || null,
+          markerId: newMarker.id,
+          createdAt: serverTimestamp(),
+        };
+        addDoc(reviewsCollection, newReview).then(() => {
+            setNewMarkerCoords(null);
+            setSelectedMarkerId(newMarker.id);
+            toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
+        }).catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: reviewsCollection.path,
+                operation: 'create',
+                requestResourceData: newReview,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
+    }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: newMarkerRef.path,
+            operation: 'create',
+            requestResourceData: newMarker,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+  };
+
+  const selectedMarker = markers?.find((m) => m.id === selectedMarkerId);
+
+  const closeDialogs = () => {
+    setSelectedMarkerId(null);
+    setNewMarkerCoords(null);
+  };
+  
+  const [newReviewText, setNewReviewText] = useState('');
+  const [newRating, setNewRating] = useState(0);
+  const [newMedia, setNewMedia] = useState<{type: 'image' | 'video', url: string}[]>([]);
+
+  const allReviewsForMarker = reviews?.filter(r => r.markerId === selectedMarkerId) || [];
+
+  return (
+    <YMaps
+      query={{
+        apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY,
+        lang: 'ru_RU',
+      }}
+    >
+      <div className="flex h-dvh w-full flex-col font-body">
+        <AppHeader />
+        <main className="grid flex-1 grid-cols-1 md:grid-cols-[380px_1fr] lg:grid-cols-[420px_1fr] xl:grid-cols-[480px_1fr] overflow-hidden">
+          <ReviewsSidebar reviews={reviews || []} markers={markers || []} onReviewSelect={handleReviewSelect} />
+          <div className="relative h-full bg-muted/30">
+            <MapView
+              mapState={mapState}
+              markers={markers || []}
+              onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
+              onMapClick={handleMapClick}
+            />
+          </div>
+        </main>
+
+        <MarkerReviewDialog
+          marker={selectedMarker}
+          reviews={allReviewsForMarker}
+          coords={newMarkerCoords}
+          isOpen={!!selectedMarker || !!newMarkerCoords}
+          onOpenChange={(open) => !open && closeDialogs()}
+          onReviewSubmit={(reviewData) => handleAddReview({...reviewData, markerId: selectedMarkerId || ''})}
+          onMarkerCreate={handleAddMarkerWithReview}
+          onReviewUpdate={handleUpdateReview}
+          onReviewDelete={handleDeleteReview}
+          newReviewText={newReviewText}
+          setNewReviewText={setNewReviewText}
+          newRating={newRating}
+          setNewRating={setNewRating}
+          newMedia={newMedia}
+          setNewMedia={setNewMedia}
+        />
+      </div>
+    </YMaps>
+  );
+}

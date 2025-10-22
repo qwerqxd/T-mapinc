@@ -1,0 +1,95 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a user-ownership model for user profiles and allows public reads for markers and reviews.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores individual user profiles. Access is restricted to the user themselves.
+ * - /markers/{markerId}: Stores map markers. Public read access is allowed, but only the creator can modify or delete a marker.
+ * - /reviews/{reviewId}: Stores reviews for markers. Public read access is allowed, but only the author can modify or delete a review.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed.
+ * - Markers and Reviews are publicly readable but owner-writable.
+ * - Only the user who created a review can delete it. This is based on the user request.
+ *
+ * Denormalization for Authorization:
+ * - Markers have a `createdBy` field to easily determine the owner for write operations.
+ * - Reviews have an `authorId` field for similar owner-based write authorization.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profile documents.
+     * @path /databases/{database}/documents/users/{userId}
+     * @allow (create) User with ID 'user123' can create their own profile.
+     * @allow (get) User with ID 'user123' can read their own profile.
+     * @allow (update) User with ID 'user123' can update their own profile.
+     * @allow (delete) User with ID 'user123' can delete their own profile.
+     * @deny (get) User with ID 'user456' cannot read user 'user123's profile.
+     * @deny (create) User with ID 'user456' cannot create a profile with ID 'user123'.
+     * @principle Enforces document ownership for all operations on user profiles.
+     */
+    match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isOwner(userId) && resource.data.uid == userId;
+      allow delete: if isOwner(userId) && resource.data.uid == userId;
+    }
+
+    /**
+     * @description Controls access to marker documents. Allows public read access, but restricts write access to the creator.
+     * @path /databases/{database}/documents/markers/{markerId}
+     * @allow (get) Any user can read a marker.
+     * @allow (list) Any user can list markers.
+     * @allow (create) User with ID 'user123' can create a marker with createdBy: 'user123'.
+     * @allow (update) User with ID 'user123' can update a marker they created (createdBy: 'user123').
+     * @allow (delete) User with ID 'user123' can delete a marker they created (createdBy: 'user123').
+     * @deny (create) User with ID 'user456' cannot create a marker with createdBy: 'user123'.
+     * @deny (update) User with ID 'user456' cannot update a marker created by 'user123'.
+     * @principle Allows public reads for markers, but enforces document ownership for writes.
+     */
+    match /markers/{markerId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.createdBy);
+      allow delete: if isExistingOwner(resource.data.createdBy);
+    }
+
+    /**
+     * @description Controls access to review documents. Allows public read access, but restricts write access to the author.
+     * @path /databases/{database}/documents/reviews/{reviewId}
+     * @allow (get) Any user can read a review.
+     * @allow (list) Any user can list reviews.
+     * @allow (create) User with ID 'user123' can create a review with authorId: 'user123'.
+     * @allow (update) User with ID 'user123' can update a review they authored (authorId: 'user123').
+     * @allow (delete) User with ID 'user123' can delete a review they authored (authorId: 'user123').
+     * @deny (create) User with ID 'user456' cannot create a review with authorId: 'user123'.
+     * @deny (update) User with ID 'user456' cannot update a review authored by 'user123'.
+     * @principle Allows public reads for reviews, but enforces document ownership for writes.
+     */
+    match /reviews/{reviewId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.authorId);
+      allow delete: if isExistingOwner(resource.data.authorId);
+    }
+  }
+}
