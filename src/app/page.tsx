@@ -47,6 +47,8 @@ export default function Home() {
     center: [55.751244, 37.618423],
     zoom: 10,
   });
+  const [mapType, setMapType] = useState<'yandex#map' | 'yandex#satellite' | 'yandex#hybrid'>('yandex#map');
+
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -120,14 +122,12 @@ export default function Home() {
     if (!user || !firestore) return;
     const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
     
-    // Only include fields that are meant to be updated.
-    // Do not include authorId or other immutable fields.
     const dataToUpdate = {
         ...updatedData,
-        updatedAt: serverTimestamp(), // Use updatedAt for edits
+        updatedAt: serverTimestamp(),
     };
 
-    setDoc(reviewRef, dataToUpdate, { merge: true }).then(() => {
+    updateDoc(reviewRef, dataToUpdate).then(() => {
         toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
     }).catch(serverError => {
         const permissionError = new FirestorePermissionError({
@@ -161,7 +161,6 @@ export default function Home() {
       );
 
       if (otherReviewsForMarker && otherReviewsForMarker.length === 0) {
-        // This was the last review, so delete the marker as well
         const markerRef = doc(firestore, 'markers', reviewToDelete.markerId);
         try {
           await deleteDoc(markerRef);
@@ -218,7 +217,6 @@ export default function Home() {
                 requestResourceData: newReview,
             });
             errorEmitter.emit('permission-error', permissionError);
-            // If review fails, we should probably delete the marker too
             deleteDoc(newMarkerRef);
         });
     }).catch(serverError => {
@@ -261,6 +259,8 @@ export default function Home() {
               markers={markers || []}
               onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
               onMapClick={handleMapClick}
+              mapType={mapType}
+              onMapTypeChange={setMapType}
             />
           </div>
         </main>

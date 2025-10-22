@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -65,12 +66,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
                 <Label htmlFor="password">Пароль</Label>
-                <Link href="#" className="text-sm text-primary/80 hover:underline">
-                  Забыли пароль?
-                </Link>
-              </div>
               <Input 
                 id="password" 
                 type="password" 
@@ -81,6 +77,7 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? 'Вход...' : 'Войти'}
             </Button>
           </form>
