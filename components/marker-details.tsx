@@ -46,6 +46,7 @@ export default function MarkerDetails({
   onAddReview,
   onUpdateReview,
   onDeleteReview,
+  onDeleteMarker,
 }: MarkerDetailsProps) {
   const { user } = useAuth();
   const [editingReview, setEditingReview] = useState<Review | null>(null);
