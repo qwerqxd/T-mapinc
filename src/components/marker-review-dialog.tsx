@@ -1,314 +1,287 @@
 
-
 'use client';
 
-import { useEffect, useState, useRef, useTransition } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-
+import { useState, useRef, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { StarRating } from '@/components/star-rating';
-import { useAuth } from '@/contexts/auth-context';
-import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
-import ReviewCard from './review-card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Star, X, Upload, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Paperclip, X, FileImage, Video, Loader2 } from 'lucide-react';
-
 
 interface MarkerReviewDialogProps {
-  marker?: MarkerData | null;
-  reviews: Review[];
-  coords?: { lat: number; lng: number } | null;
-  isOpen: boolean;
+  open: boolean;
   onOpenChange: (open: boolean) => void;
-  onReviewSubmit: (review: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => void;
-  onMarkerCreate: (review: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
-  onReviewUpdate: (reviewToUpdate: Review, updatedData: { text: string; rating: number; media: ReviewMedia[] }) => void;
-  onReviewDelete: (review: Review) => void;
-  newReviewText: string;
-  setNewReviewText: (text: string) => void;
-  newRating: number;
-  setNewRating: (rating: number) => void;
-  newMedia: ReviewMedia[];
-  setNewMedia: (media: ReviewMedia[] | ((prev: ReviewMedia[]) => ReviewMedia[])) => void;
+  markerPosition?: { lat: number; lng: number };
+  onReviewSubmit: (review: {
+    rating: number;
+    comment: string;
+    media: { type: 'image' | 'video'; url: string }[];
+    address?: string;
+  }) => void;
 }
 
-export default function MarkerReviewDialog({
-  marker,
-  reviews,
-  coords,
-  isOpen,
+type MediaItem = {
+  type: 'image' | 'video';
+  url: string;
+};
+
+export function MarkerReviewDialog({
+  open,
   onOpenChange,
+  markerPosition,
   onReviewSubmit,
-  onMarkerCreate,
-  onReviewUpdate,
-  onReviewDelete,
-  newReviewText,
-  setNewReviewText,
-  newRating,
-  setNewRating,
-  newMedia,
-  setNewMedia,
 }: MarkerReviewDialogProps) {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [editingReview, setEditingReview] = useState<Review | null>(null);
-  const [deletingReview, setDeletingReview] = useState<Review | null>(null);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [newMedia, setNewMedia] = useState<MediaItem[]>([]);
+  const [address, setAddress] = useState('');
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (isOpen) {
-      setNewReviewText('');
-      setNewRating(0);
-      setNewMedia([]);
-      setEditingReview(null);
-      setDeletingReview(null);
+    if (open && markerPosition) {
+      fetchAddress(markerPosition.lat, markerPosition.lng);
     }
-  }, [isOpen, marker, coords, setNewReviewText, setNewRating, setNewMedia]);
+  }, [open, markerPosition]);
 
-  useEffect(() => {
-    if(editingReview) {
-      setNewReviewText(editingReview.text);
-      setNewRating(editingReview.rating);
-      setNewMedia(editingReview.media || []);
-    } else {
-      setNewReviewText('');
-      setNewRating(0);
-      setNewMedia([]);
+  const fetchAddress = async (lat: number, lng: number) => {
+    setIsLoadingAddress(true);
+    try {
+      const response = await fetch(
+        `https://geocode-maps.yandex.ru/1.x/?apikey=${process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY}&geocode=${lng},${lat}&format=json`
+      );
+      const data = await response.json();
+      const foundAddress =
+        data.response.GeoObjectCollection.featureMember[0]?.GeoObject?.name ||
+        'Адрес не найден';
+      setAddress(foundAddress);
+    } catch (error) {
+      console.error('Error fetching address:', error);
+      setAddress('Не удалось определить адрес');
+    } finally {
+      setIsLoadingAddress(false);
     }
-  }, [editingReview, setNewReviewText, setNewRating, setNewMedia]);
+  };
 
-
-  const isCreatingNewMarker = !marker && !!coords;
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    if (newMedia.length + files.length > 10) {
+    Array.from(files).forEach((file) => {
+      if (file.type.startsWith('image/')) {
+        setNewMedia((prev: MediaItem[]) => [
+          ...prev,
+          { type: 'image', url: URL.createObjectURL(file) },
+        ]);
+      } else if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.onloadedmetadata = () => {
+          if (video.duration > 30) {
+            toast({
+              title: 'Ошибка',
+              description: 'Видео должно быть не длиннее 30 секунд',
+              variant: 'destructive',
+            });
+          } else {
+            setNewMedia((prev: MediaItem[]) => [
+              ...prev,
+              { type: 'video', url: URL.createObjectURL(file) },
+            ]);
+          }
+        };
+        video.src = URL.createObjectURL(file);
+      }
+    });
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeMedia = (index: number) => {
+    setNewMedia((prev: MediaItem[]) => {
+      const newMedia = [...prev];
+      URL.revokeObjectURL(newMedia[index].url);
+      newMedia.splice(index, 1);
+      return newMedia;
+    });
+  };
+
+  const handleSubmit = () => {
+    if (rating === 0) {
       toast({
         title: 'Ошибка',
-        description: 'Вы можете загрузить не более 10 медиафайлов.',
+        description: 'Пожалуйста, поставьте оценку',
         variant: 'destructive',
       });
       return;
     }
 
-    Array.from(files).forEach(file => {
-      const fileType = file.type.startsWith('image') ? 'image' : 'video';
-      if (fileType === 'video') {
-        const video = document.createElement('video');
-        video.preload = 'metadata';
-        video.onloadedmetadata = () => {
-          window.URL.revokeObjectURL(video.src);
-          if (video.duration > 30) {
-            toast({
-              title: 'Ошибка',
-              description: `Видео "${file.name}" длиннее 30 секунд.`,
-              variant: 'destructive',
-            });
-          } else {
-            setNewMedia((prev: ReviewMedia[]) => [...prev, { type: 'video', url: URL.createObjectURL(file), file: file }]);
-          }
-        };
-        video.src = URL.createObjectURL(file);
-      } else {
-        setNewMedia((prev: ReviewMedia[]) => [...prev, { type: 'image', url: URL.createObjectURL(file), file: file }]);
-      }
-    });
-  };
-
-  const removeMedia = (url: string) => {
-    setNewMedia((prev: ReviewMedia[]) => prev.filter(item => item.url !== url));
-  };
-
-
-  const handleSubmit = () => {
-     startTransition(() => {
-        if (!user) {
-          toast({ title: 'Ошибка', description: 'Вы должны войти в систему, чтобы оставить отзыв.', variant: 'destructive'});
-          return;
-        }
-        if (newReviewText.trim() === '' || newRating === 0) {
-          toast({ title: 'Ошибка', description: 'Пожалуйста, поставьте оценку и напишите текст отзыва.', variant: 'destructive' });
-          return;
-        }
-
-        const reviewData = {
-          text: newReviewText,
-          rating: newRating,
-          media: newMedia
-        };
-
-        if (editingReview) {
-          onReviewUpdate(editingReview, reviewData);
-          setEditingReview(null);
-        } else if (isCreatingNewMarker) {
-            onMarkerCreate(reviewData);
-        } else if (marker) {
-            onReviewSubmit({
-                markerId: marker.id,
-                ...reviewData
-            });
-        }
-    });
-  };
-
-  const handleConfirmDelete = () => {
-    if (deletingReview) {
-      onReviewDelete(deletingReview);
-      setDeletingReview(null);
+    if (comment.trim() === '') {
+      toast({
+        title: 'Ошибка',
+        description: 'Пожалуйста, добавьте комментарий',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    onReviewSubmit({
+      rating,
+      comment,
+      media: newMedia,
+      address: address || undefined,
+    });
+
+    // Reset form
+    setRating(0);
+    setComment('');
+    setNewMedia([]);
+    setAddress('');
+    onOpenChange(false);
   };
 
-  const getMarkerTitle = () => {
-    if (isCreatingNewMarker) return "Новый отзыв";
-    if (reviews.length > 0) {
-        return `Отзывы о месте`;
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Clean up object URLs when dialog closes
+      newMedia.forEach((media) => URL.revokeObjectURL(media.url));
     }
-    return 'Отзывы об этом месте';
-  }
-
-  const getMarkerDescription = () => {
-     if (isCreatingNewMarker) return "Оставьте первый отзыв об этом месте.";
-     if (reviews.length > 0) {
-         return "Посмотрите, что говорят другие, и добавьте свой отзыв.";
-     }
-     return "Об этом месте еще нет отзывов. Будьте первым!";
-  }
-
+    onOpenChange(newOpen);
+  };
 
   return (
-    <>
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[80vh] flex flex-col">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{getMarkerTitle()}</DialogTitle>
-          <DialogDescription>
-            {getMarkerDescription()}
-          </DialogDescription>
+          <DialogTitle>Добавить отзыв к метке</DialogTitle>
         </DialogHeader>
-        <Separator />
-        <ScrollArea className="flex-1 pr-4 -mr-4">
-          <div className="space-y-4 py-4">
-            {reviews.length > 0 ? (
-              reviews.map((review) => <ReviewCard key={review.id} review={review} onEdit={() => setEditingReview(review)} onDelete={() => setDeletingReview(review)} />)
-            ) : (
-              <div className="text-sm text-muted-foreground text-center py-8">
-                <p>Нет отзывов. Будьте первым, кто оставит один!</p>
+
+        <div className="space-y-6">
+          {/* Rating */}
+          <div>
+            <Label htmlFor="rating">Оценка</Label>
+            <div className="flex gap-1 mt-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRating(star)}
+                  className="p-1 focus:outline-none"
+                >
+                  <Star
+                    className={`w-8 h-8 ${
+                      star <= rating
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'text-gray-300'
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Address */}
+          {markerPosition && (
+            <div>
+              <Label>Адрес метки</Label>
+              <div className="flex items-center gap-2 mt-2 p-3 bg-gray-50 rounded-lg">
+                <MapPin className="w-4 h-4 text-gray-500" />
+                <span className="text-sm text-gray-700">
+                  {isLoadingAddress ? 'Загрузка адреса...' : address}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Comment */}
+          <div>
+            <Label htmlFor="comment">Комментарий</Label>
+            <Textarea
+              id="comment"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Расскажите о вашем опыте..."
+              className="mt-2 min-h-[100px]"
+            />
+          </div>
+
+          {/* Media Upload */}
+          <div>
+            <Label>Фото и видео</Label>
+            <div className="mt-2">
+              <Input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,video/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Загрузить фото или видео
+              </Button>
+              <p className="text-xs text-gray-500 mt-2">
+                Можно загружать изображения и видео до 30 секунд
+              </p>
+            </div>
+
+            {/* Media Preview */}
+            {newMedia.length > 0 && (
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                {newMedia.map((media, index) => (
+                  <div key={index} className="relative group">
+                    {media.type === 'image' ? (
+                      <img
+                        src={media.url}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <video
+                        src={media.url}
+                        className="w-full h-24 object-cover rounded-lg"
+                        controls
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeMedia(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-        </ScrollArea>
-        {user && (
-          <>
-            <Separator />
-            <div className="space-y-3 pt-4">
-              <h3 className="text-md font-semibold">{editingReview ? 'Редактировать ваш отзыв' : 'Добавьте свой отзыв'}</h3>
-              <StarRating rating={newRating} onRatingChange={setNewRating} interactive />
-              <Textarea
-                placeholder="Поделитесь своим опытом..."
-                value={newReviewText}
-                onChange={(e) => setNewReviewText(e.target.value)}
-                disabled={isPending}
-              />
 
-              <div className="space-y-2">
-                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
-                  <Paperclip className="mr-2 h-4 w-4" />
-                  Прикрепить медиа
-                </Button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  multiple
-                  accept="image/*,video/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  disabled={isPending}
-                />
-                {newMedia.length > 0 && (
-                  <ScrollArea className="w-full h-32">
-                    <div className="flex space-x-2 p-1">
-                      {newMedia.map((media, index) => (
-                        <div key={index} className="relative flex-shrink-0 w-24 h-24 rounded-md overflow-hidden">
-                          {media.type === 'image' ? (
-                            <img src={media.url} alt="preview" className="w-full h-full object-cover" />
-                          ) : (
-                            <video src={media.url} className="w-full h-full object-cover" />
-                          )}
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-1 right-1 h-5 w-5"
-                            onClick={() => removeMedia(media.url)}
-                            disabled={isPending}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                          <div className="absolute bottom-1 left-1 bg-black/50 text-white p-1 rounded">
-                            {media.type === 'image' ? <FileImage className="h-4 w-4" /> : <Video className="h-4 w-4" />}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </div>
-
-               <DialogFooter>
-                {editingReview && (
-                  <Button variant="ghost" onClick={() => setEditingReview(null)} disabled={isPending}>Отмена</Button>
-                )}
-                <Button onClick={handleSubmit} className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90" disabled={isPending}>
-                    {isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                    )}
-                    {isPending ? 'Отправка...' : editingReview ? 'Сохранить изменения' : isCreatingNewMarker ? 'Создать метку и отзыв' : 'Отправить отзыв'}
-                </Button>
-               </DialogFooter>
-            </div>
-          </>
-        )}
+          {/* Submit Button */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              className="flex-1"
+            >
+              Отмена
+            </Button>
+            <Button onClick={handleSubmit} className="flex-1">
+              Опубликовать отзыв
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
-
-    <AlertDialog open={!!deletingReview} onOpenChange={(open) => !open && setDeletingReview(null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
-            <AlertDialogDescription>
-                Это действие необратимо. Ваш отзыв будет удален навсегда.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Удалить</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-  </>
   );
 }
