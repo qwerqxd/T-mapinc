@@ -38,7 +38,7 @@ export default function AdminUsersPage() {
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
 
-  // Only fetch users if the current user is an admin.
+  // Only fetch users if the current user is confirmed to be an admin.
   const { data: users, loading: usersLoading } = useCollection<User>(
     isReady && firestore ? collection(firestore, 'users') : null
   );
@@ -85,7 +85,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  if (!isReady || usersLoading) {
+  if (!isReady || usersLoading || authLoading) {
     return (
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-bold mb-6">Управление пользователями</h1>
