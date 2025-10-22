@@ -113,9 +113,13 @@
               "url": {
                 "type": "string",
                 "format": "uri"
+              },
+               "storagePath": {
+                "type": "string",
+                "description": "Path to the file in Firebase Storage."
               }
             },
-            "required": ["type", "url"]
+            "required": ["type", "url", "storagePath"]
           }
         }
       },

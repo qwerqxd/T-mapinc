@@ -12,7 +12,8 @@ export type User = {
 
 export type ReviewMedia = {
   type: 'image' | 'video';
-  url: string;
+  url: string; // Public URL from Firebase Storage
+  storagePath?: string; // Path in Firebase Storage for deletion
 }
 
 export type Review = {
@@ -35,5 +36,3 @@ export type MarkerData = {
   name: string;
   createdBy: string; // user ID
 };
-
-

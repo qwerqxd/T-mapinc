@@ -32,8 +32,8 @@ interface MarkerDetailsProps {
   reviews: Review[];
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddReview: (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
-  onUpdateReview: (review: Review, updatedData: { text: string; rating: number; media: ReviewMedia[] }) => void;
+  onAddReview: (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => void;
+  onUpdateReview: (review: Review, updatedData: { text: string; rating: number; media?: File[] }) => void;
   onDeleteReview: (review: Review) => void;
   onDeleteMarker: (markerId: string) => void;
 }
@@ -46,21 +46,22 @@ export default function MarkerDetails({
   onAddReview,
   onUpdateReview,
   onDeleteReview,
+  onDeleteMarker,
 }: MarkerDetailsProps) {
   const { user } = useAuth();
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [deletingReview, setDeletingReview] = useState<Review | null>(null);
 
 
-  const handleAddSubmit = (reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleAddSubmit = (reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
     if (marker) {
       onAddReview(marker.id, reviewData);
     }
   };
 
-  const handleEditSubmit = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleEditSubmit = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
     if (editingReview) {
-      onUpdateReview(editingReview, { ...reviewData, media: reviewData.media || [] });
+      onUpdateReview(editingReview, { ...reviewData });
       setEditingReview(null);
     }
   };
