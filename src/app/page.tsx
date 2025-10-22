@@ -11,7 +11,7 @@ import MarkerReviewDialog from '@/components/marker-review-dialog';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, updateDoc, type CollectionReference } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -42,15 +42,15 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 
 export default function Home() {
   const firestore = useFirestore();
-  const { data: markers, loading: markersLoading } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') : null);
-  const { data: reviews, loading: reviewsLoading } = useCollection<Review>(firestore ? collection(firestore, 'reviews') : null);
+  const { data: markers, loading: markersLoading } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') as CollectionReference<MarkerData> : null);
+  const { data: reviews, loading: reviewsLoading } = useCollection<Review>(firestore ? collection(firestore, 'reviews') as CollectionReference<Review> : null);
   
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [newMarkerCoords, setNewMarkerCoords] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  const [mapState, setMapState] = useState({
+  const [mapState, setMapState] = useState<{ center: [number, number]; zoom: number }>({
     center: [55.751244, 37.618423],
     zoom: 10,
   });
