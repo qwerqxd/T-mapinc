@@ -21,7 +21,7 @@ export function useMarkers() {
     const { data: reviews, loading: reviewsLoading, error: reviewsError } = useCollection<Review>(firestore ? collection(firestore, 'reviews') as CollectionReference<Review> : null);
 
     const handleFileUploads = async (files: File[]): Promise<ReviewMedia[]> => {
-        if (!user) return [];
+        if (!user || files.length === 0) return [];
 
         const uploadPromises = files.map(async (file) => {
             const fileId = uuidv4();
@@ -42,37 +42,40 @@ export function useMarkers() {
         if (!user || !firestore) return;
         
         const { media: files = [], ...restOfReviewData } = reviewData;
-        const uploadedMedia = await handleFileUploads(files);
-
-        const newReview = {
-            ...restOfReviewData,
-            markerId,
-            authorId: user.uid,
-            authorName: user.name || 'Анонимный пользователь',
-            authorAvatarUrl: user.avatarUrl || null,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            media: uploadedMedia,
-        };
-
-        const reviewsCollection = collection(firestore, 'reviews');
+        
+        let uploadedMedia: ReviewMedia[] = [];
         try {
+            uploadedMedia = await handleFileUploads(files);
+
+            const newReview = {
+                ...restOfReviewData,
+                markerId,
+                authorId: user.uid,
+                authorName: user.name || 'Анонимный пользователь',
+                authorAvatarUrl: user.avatarUrl || null,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                media: uploadedMedia,
+            };
+
+            const reviewsCollection = collection(firestore, 'reviews');
             await addDoc(reviewsCollection, newReview);
             toast({ title: 'Успех', description: 'Ваш отзыв был отправлен.' });
-        } catch (serverError) {
-            const permissionError = new FirestorePermissionError({
-                path: reviewsCollection.path,
-                operation: 'create',
-                requestResourceData: newReview,
-            });
-            errorEmitter.emit('permission-error', permissionError);
+        } catch (error) {
+             console.error("Error adding review:", error);
+             toast({ title: 'Ошибка', description: 'Не удалось отправить отзыв.', variant: 'destructive' });
             // If upload was successful but firestore failed, delete uploaded files
-            uploadedMedia.forEach(media => media.storagePath && deleteFile(media.storagePath));
+            if(uploadedMedia.length > 0) {
+                uploadedMedia.forEach(media => media.storagePath && deleteFile(media.storagePath));
+            }
+             if (error instanceof FirestorePermissionError) {
+                 errorEmitter.emit('permission-error', error);
+             }
         }
     };
 
     const addMarkerWithReview = async (coords: { lat: number; lng: number }, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { name?: string, media?: File[] }) => {
-        if (!user || !firestore) return;
+        if (!user || !firestore) return null;
 
         const markerName = reviewData.name;
         if (!markerName) {
@@ -80,17 +83,17 @@ export function useMarkers() {
              return null;
         }
 
-        try {
-            const markersCollection = collection(firestore, 'markers');
-            const newMarkerRef = doc(markersCollection);
+        const markersCollection = collection(firestore, 'markers');
+        const newMarkerRef = doc(markersCollection);
             
-            const newMarker: Omit<MarkerData, 'id'> = {
-                createdBy: user.uid,
-                lat: coords.lat,
-                lng: coords.lng,
-                name: markerName,
-            };
-
+        const newMarker: Omit<MarkerData, 'id'> = {
+            createdBy: user.uid,
+            lat: coords.lat,
+            lng: coords.lng,
+            name: markerName,
+        };
+        
+        try {
             await setDoc(newMarkerRef, newMarker);
 
             const { name, ...reviewDataForDb } = reviewData;
@@ -106,8 +109,8 @@ export function useMarkers() {
               requestResourceData: { coords, reviewData },
             });
             errorEmitter.emit('permission-error', permissionError);
+            return null;
         }
-        return null;
     };
     
     const updateReview = async (reviewToUpdate: Review, updatedData: { text: string; rating: number; media?: File[] }) => {
@@ -115,26 +118,31 @@ export function useMarkers() {
         const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
         
         const { media: newFiles = [], ...restOfData } = updatedData;
-        const newUploadedMedia = await handleFileUploads(newFiles);
-
-        const dataToUpdate = {
-            ...restOfData,
-            updatedAt: serverTimestamp(),
-            media: [...(reviewToUpdate.media || []), ...newUploadedMedia]
-        };
-
+        
+        let newUploadedMedia: ReviewMedia[] = [];
         try {
+            newUploadedMedia = await handleFileUploads(newFiles);
+
+            const dataToUpdate = {
+                ...restOfData,
+                updatedAt: serverTimestamp(),
+                media: [...(reviewToUpdate.media || []), ...newUploadedMedia]
+            };
+
             await updateDoc(reviewRef, dataToUpdate as any);
             toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
-        } catch (serverError) {
-            const permissionError = new FirestorePermissionError({
-                path: reviewRef.path,
-                operation: 'update',
-                requestResourceData: dataToUpdate,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-             // If upload was successful but firestore failed, delete newly uploaded files
-            newUploadedMedia.forEach(media => media.storagePath && deleteFile(media.storagePath));
+        } catch (error) {
+            console.error("Error updating review:", error);
+            toast({ title: 'Ошибка', description: 'Не удалось обновить отзыв.', variant: 'destructive' });
+
+            // If upload was successful but firestore failed, delete newly uploaded files
+             if(newUploadedMedia.length > 0) {
+                newUploadedMedia.forEach(media => media.storagePath && deleteFile(media.storagePath));
+            }
+
+            if (error instanceof FirestorePermissionError) {
+                errorEmitter.emit('permission-error', error);
+            }
         }
     };
 
@@ -144,9 +152,7 @@ export function useMarkers() {
         const reviewRef = doc(firestore, 'reviews', reviewToDelete.id);
 
         try {
-            await deleteDoc(reviewRef);
-
-            // Delete associated media from storage
+            // Delete associated media from storage first
             if (reviewToDelete.media) {
                 const deletePromises = reviewToDelete.media.map(media => {
                     if (media.storagePath) {
@@ -156,7 +162,9 @@ export function useMarkers() {
                 });
                 await Promise.all(deletePromises);
             }
-
+            
+            await deleteDoc(reviewRef);
+            
             toast({ title: 'Успех', description: 'Ваш отзыв был удален.' });
 
             const otherReviewsForMarker = reviews?.filter(

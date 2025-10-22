@@ -61,7 +61,7 @@ export default function MarkerDetails({
 
   const handleEditSubmit = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
     if (editingReview) {
-      onUpdateReview(editingReview, { ...reviewData });
+      onUpdateReview(editingReview, reviewData);
       setEditingReview(null);
     }
   };
