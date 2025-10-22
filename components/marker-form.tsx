@@ -25,8 +25,8 @@ interface MarkerFormProps {
   coords?: { lat: number; lng: number } | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onMarkerCreate?: (review: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & {name?:string}) => void;
-  onFormSubmit?: (reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
+  onMarkerCreate?: (data: { name: string; text: string; rating: number; media: ReviewMedia[] }) => void;
+  onFormSubmit?: (reviewData: { text: string; rating: number; media: ReviewMedia[] }) => void;
   isEditing?: boolean;
   initialData?: Review;
   onCancelEdit?: () => void;
@@ -83,6 +83,12 @@ export default function MarkerForm({
       const fileType = file.type.startsWith('image') ? 'image' : 'video';
       const objectURL = URL.createObjectURL(file);
       
+      const newMediaItem: ReviewMedia = {
+        type: fileType,
+        url: objectURL,
+        file: file
+      };
+
       if (fileType === 'video') {
         const video = document.createElement('video');
         video.preload = 'metadata';
@@ -95,12 +101,12 @@ export default function MarkerForm({
               variant: 'destructive',
             });
           } else {
-            setMedia(prev => [...prev, { type: 'video', url: objectURL }]);
+            setMedia((prev) => [...prev, newMediaItem]);
           }
         };
         video.src = objectURL;
       } else {
-        setMedia(prev => [...prev, { type: 'image', url: objectURL }]);
+        setMedia((prev) => [...prev, newMediaItem]);
       }
     });
   };
