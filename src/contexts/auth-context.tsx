@@ -45,7 +45,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         // This can happen if user is created in Auth but not in Firestore yet
         // Let's not set user to null here, maybe the creation is in progress
-        console.log(`User document for ${fbUser.uid} not found. This may be expected during registration.`);
       }
     } catch (error) {
       const permissionError = new FirestorePermissionError({
@@ -81,7 +80,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // onAuthStateChanged will handle the rest, including setting loading to false
       return { success: true };
     } catch (error: any) {
-      console.error('Login error:', error.message);
       setIsLoading(false);
       let errorMessage = 'Произошла неизвестная ошибка.';
       switch (error.code) {
@@ -107,7 +105,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await signOut(auth);
       // onAuthStateChanged will handle setting user state to null
     } catch (error) {
-      console.error("Logout error:", error);
     }
   };
   
@@ -153,7 +150,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
          errorEmitter.emit('permission-error', permissionError);
          errorMessage = 'Ошибка сохранения данных пользователя.';
        } else {
-         console.error("Registration auth error:", error.message);
          switch (error.code) {
             case 'auth/email-already-in-use':
               errorMessage = 'Пользователь с таким email уже существует.';

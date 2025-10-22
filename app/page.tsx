@@ -40,7 +40,6 @@ export default function Home() {
         setSelectedMarkerId(null);
         setNewMarkerCoords(coords);
     } else {
-        // console.log("User must be logged in to create a marker");
         // Optionally, show a toast message to the user
     }
   }, [user]);
@@ -83,10 +82,7 @@ export default function Home() {
 
 
   return (
-      <div className="grid grid-cols-1 md:grid-cols-[384px_1fr] h-[calc(100vh-4rem)]">
-        <div className="hidden md:flex md:flex-col">
-           <ReviewsSidebar reviews={reviews} markers={markers} onReviewSelect={handleMarkerClick} />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_384px] h-[calc(100vh-4rem)]">
         <div className="relative">
             <MapView
               mapState={mapState}
@@ -95,6 +91,9 @@ export default function Home() {
               onMapClick={handleMapClick}
               selectedMarkerId={selectedMarkerId}
             />
+        </div>
+        <div className="hidden md:flex md:flex-col">
+           <ReviewsSidebar reviews={reviews} markers={markers} onReviewSelect={handleMarkerClick} />
         </div>
         
         {selectedMarker && (

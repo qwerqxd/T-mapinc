@@ -58,7 +58,6 @@ const updateUserRoleFlow = ai.defineFlow(
         message: `Successfully updated role for user ${targetUserId} to ${newRole}.`,
       };
     } catch (error: any) {
-      console.error('Error in updateUserRoleFlow:', error);
       // Re-throw the error to be caught by the client-side caller
       // The actual permission error will be caught and displayed on the client.
       throw new Error(error.message || 'An unexpected error occurred while updating user role.');

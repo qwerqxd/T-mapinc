@@ -78,7 +78,6 @@ export default function AdminUsersPage() {
         description: `Роль пользователя ${targetUser.name} изменена на ${newRole}.`,
       });
     } catch (error: any) {
-      console.error('Failed to update user role:', error);
       toast({
         title: 'Ошибка',
         description: error.message || 'Не удалось обновить роль пользователя.',
