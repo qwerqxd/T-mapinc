@@ -1,8 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
+import type { MarkerData, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import {
   Dialog,
@@ -28,6 +27,7 @@ interface MarkerDetailsProps {
   onDeleteMarker: (markerId: string) => void;
   editingReview: Review | null;
   onCancelEdit: () => void;
+  onEditReview: (review: Review) => void;
 }
 
 export default function MarkerDetails({
@@ -41,6 +41,7 @@ export default function MarkerDetails({
   onDeleteMarker,
   editingReview,
   onCancelEdit,
+  onEditReview,
 }: MarkerDetailsProps) {
   const { user } = useAuth();
   
@@ -60,19 +61,17 @@ export default function MarkerDetails({
     if (!marker && !editingReview) return '';
     
     // Find the marker associated with the review being edited, if any.
-    const markerForEditedReview = editingReview 
-      ? reviews.find(r => r.id === editingReview.id)?.markerId
-      : null;
+    const currentMarker = editingReview 
+      ? markers.find(m => m.id === editingReview.markerId)
+      : marker;
       
-    const currentMarker = marker || (markerForEditedReview ? { name: reviews.find(r => r.markerId === markerForEditedReview)?.text } : null);
-    
-    if (editingReview) return "Редактирование отзыва";
+    if (editingReview) return `Редактирование отзыва для "${currentMarker?.name}"`;
 
     return currentMarker?.name || "Отзывы о месте";
   }
 
   const getMarkerDescription = () => {
-     if (editingReview) return "Редактируйте свой отзыв ниже.";
+     if (editingReview) return "Отредактируйте детали вашего отзыва ниже.";
      if (reviews.length > 0) {
          return "Посмотрите, что говорят другие, и добавьте свой отзыв.";
      }
@@ -80,6 +79,18 @@ export default function MarkerDetails({
   }
   
   const isFormForEditing = !!editingReview;
+
+  // This is a workaround to find markers from reviews when editing
+  const markers = reviews.reduce((acc, review) => {
+    if (!acc.find(m => m.id === review.markerId)) {
+      const relatedMarker = marker; // This is a bit of a hack
+      if (relatedMarker && relatedMarker.id === review.markerId) {
+        acc.push(relatedMarker);
+      }
+    }
+    return acc;
+  }, [] as MarkerData[]);
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -93,12 +104,12 @@ export default function MarkerDetails({
         <Separator />
         <ScrollArea className="flex-1 pr-4 -mr-4">
           <div className="space-y-4 py-4">
-            {reviews.length > 0 ? (
+            {!isFormForEditing && reviews.length > 0 ? (
               reviews.map((review) => (
                 <ReviewCard 
                   key={review.id} 
                   review={review} 
-                  onEdit={onCancelEdit} // This is a bit of a misnomer, it just closes the current dialog
+                  onEdit={onEditReview}
                   onDelete={onDeleteReview} 
                 />
               ))
@@ -109,6 +120,9 @@ export default function MarkerDetails({
                 </div>
               )
             )}
+             {isFormForEditing && editingReview && (
+                <ReviewCard review={editingReview} />
+             )}
           </div>
         </ScrollArea>
         {user && (
@@ -119,8 +133,8 @@ export default function MarkerDetails({
               initialData={isFormForEditing ? editingReview : undefined}
               onFormSubmit={isFormForEditing ? handleEditSubmit : handleAddSubmit}
               onCancelEdit={onCancelEdit}
-              isOpen={true} // It's part of a dialog, so it's always "open" in its context
-              onOpenChange={()=>{}} // Managed by parent
+              isOpen={true}
+              onOpenChange={()=>{}}
             />
           </>
         )}

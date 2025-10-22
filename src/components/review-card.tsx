@@ -53,16 +53,20 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
     });
   }
 
-  const canModify = currentUser?.uid === review.authorId || currentUser?.role === 'admin';
+  const canModify = currentUser && (currentUser.uid === review.authorId || currentUser.role === 'admin');
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onEdit?.(review);
+    if (onEdit) {
+      onEdit(review);
+    }
   }
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onDelete?.(review);
+    if (onDelete) {
+      onDelete(review);
+    }
   }
 
   return (
