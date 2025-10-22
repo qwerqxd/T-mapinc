@@ -76,13 +76,17 @@ export default function MarkerReviewDialog({
 
   useEffect(() => {
     if (isOpen) {
+      // Do not reset fields when just opening the dialog
+      // They are reset when a review is submitted/edited.
+    } else {
+       // Reset everything when dialog closes
       setNewReviewText('');
       setNewRating(0);
       setNewMedia([]);
       setEditingReview(null);
       setDeletingReview(null);
     }
-  }, [isOpen, marker, coords, setNewReviewText, setNewRating, setNewMedia]);
+  }, [isOpen, setNewReviewText, setNewRating, setNewMedia]);
 
   useEffect(() => {
     if(editingReview) {
@@ -90,9 +94,7 @@ export default function MarkerReviewDialog({
       setNewRating(editingReview.rating);
       setNewMedia(editingReview.media || []);
     } else {
-      setNewReviewText('');
-      setNewRating(0);
-      setNewMedia([]);
+      // Don't reset here, to allow typing a new review after canceling an edit
     }
   }, [editingReview, setNewReviewText, setNewRating, setNewMedia]);
 
@@ -171,7 +173,19 @@ export default function MarkerReviewDialog({
             ...reviewData
         });
     }
+    
+    // Reset form after submission
+    setNewReviewText('');
+    setNewRating(0);
+    setNewMedia([]);
   };
+  
+  const handleCancelEdit = () => {
+    setEditingReview(null);
+    setNewReviewText('');
+    setNewRating(0);
+    setNewMedia([]);
+  }
 
   const handleConfirmDelete = () => {
     if (deletingReview) {
@@ -213,9 +227,11 @@ export default function MarkerReviewDialog({
             {reviews.length > 0 ? (
               reviews.map((review) => <ReviewCard key={review.id} review={review} onEdit={() => setEditingReview(review)} onDelete={() => setDeletingReview(review)} />)
             ) : (
+              !isCreatingNewMarker && (
               <div className="text-sm text-muted-foreground text-center py-8">
                 <p>Нет отзывов. Будьте первым, кто оставит один!</p>
               </div>
+              )
             )}
           </div>
         </ScrollArea>
@@ -274,11 +290,11 @@ export default function MarkerReviewDialog({
 
                <DialogFooter>
                 {editingReview && (
-                  <Button variant="ghost" onClick={() => setEditingReview(null)}>Отмена</Button>
+                  <Button variant="ghost" onClick={handleCancelEdit}>Отмена</Button>
                 )}
                 <Button onClick={handleSubmit} className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    {editingReview ? 'Сохранить изменения' : 'Отправить отзыв'}
+                    {editingReview ? 'Сохранить изменения' : isCreatingNewMarker ? 'Добавить метку и отзыв' : 'Отправить отзыв'}
                 </Button>
                </DialogFooter>
             </div>

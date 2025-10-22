@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 
 'use client';
 
@@ -51,6 +50,11 @@ export default function Home() {
 
   const { user } = useAuth();
   const { toast } = useToast();
+  
+  const [newReviewText, setNewReviewText] = useState('');
+  const [newRating, setNewRating] = useState(0);
+  const [newMedia, setNewMedia] = useState<{type: 'image' | 'video', url: string}[]>([]);
+
 
   const handleMapClick = (lat: number, lng: number) => {
     if (!user) {
@@ -103,7 +107,6 @@ export default function Home() {
     const reviewsCollection = collection(firestore, 'reviews');
     addDoc(reviewsCollection, newReview).then(() => {
         toast({ title: 'Успех', description: 'Ваш отзыв был отправлен.'});
-        // We don't close the dialog so user can see their new review.
         setNewReviewText('');
         setNewRating(0);
         setNewMedia([]);
@@ -119,12 +122,19 @@ export default function Home() {
 
   const handleUpdateReview = (reviewToUpdate: Review, updatedData: { text: string; rating: number; media?: {type: 'image' | 'video', url: string}[] }) => {
     if (!user || !firestore) return;
+
+    if (user.uid !== reviewToUpdate.authorId && user.role !== 'admin') {
+      toast({ title: 'Ошибка', description: 'Вы не можете редактировать этот отзыв.', variant: 'destructive'});
+      return;
+    }
+
     const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
     
     const dataToSave = {
-        ...reviewToUpdate,
-        ...updatedData,
-        createdAt: serverTimestamp(), // Update timestamp on edit
+        text: updatedData.text,
+        rating: updatedData.rating,
+        media: updatedData.media || [],
+        updatedAt: serverTimestamp(), // Update timestamp on edit
     };
 
     setDoc(reviewRef, dataToSave, { merge: true }).then(() => {
@@ -148,6 +158,11 @@ export default function Home() {
       });
       return;
     }
+
+    if (user.uid !== reviewToDelete.authorId && user.role !== 'admin') {
+      toast({ title: 'Ошибка', description: 'Вы не можете удалить этот отзыв.', variant: 'destructive'});
+      return;
+    }
     
     const reviewRef = doc(firestore, 'reviews', reviewToDelete.id);
 
@@ -166,6 +181,7 @@ export default function Home() {
         try {
           await deleteDoc(markerRef);
           toast({ title: 'Успех', description: 'Последний отзыв и метка были удалены.' });
+          closeDialogs(); // Close dialog if marker is also deleted
         } catch(markerError) {
            const permissionError = new FirestorePermissionError({
               path: markerRef.path,
@@ -174,7 +190,6 @@ export default function Home() {
           errorEmitter.emit('permission-error', permissionError);
         }
       }
-      closeDialogs();
     } catch (error: any) {
         const permissionError = new FirestorePermissionError({
             path: reviewRef.path,
@@ -212,6 +227,10 @@ export default function Home() {
             setNewMarkerCoords(null);
             setSelectedMarkerId(newMarker.id);
             toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
+            // Reset form fields
+            setNewReviewText('');
+            setNewRating(0);
+            setNewMedia([]);
         }).catch(serverError => {
             const permissionError = new FirestorePermissionError({
                 path: reviewsCollection.path,
@@ -237,9 +256,6 @@ export default function Home() {
     setNewMarkerCoords(null);
   };
   
-  const [newReviewText, setNewReviewText] = useState('');
-  const [newRating, setNewRating] = useState(0);
-  const [newMedia, setNewMedia] = useState<{type: 'image' | 'video', url: string}[]>([]);
 
   const allReviewsForMarker = reviews?.filter(r => r.markerId === selectedMarkerId) || [];
 
@@ -284,8 +300,4 @@ export default function Home() {
       </div>
     </YMaps>
   );
-=======
-export default function Home() {
-  return <></>;
->>>>>>> dd6cf03 (Initialized workspace with Firebase Studio)
 }
