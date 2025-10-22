@@ -74,11 +74,18 @@ export default function ReviewsSidebar({
 
   const filteredReviews = useMemo(() => {
     let filtered = reviews.filter((review) => {
+      if (!review) return false;
       const marker = markersById.get(review.markerId);
       const searchText = searchTerm.toLowerCase();
-      const inMarker = marker && (marker.city?.toLowerCase().includes(searchText) || marker.country?.toLowerCase().includes(searchText));
-      const inReview = (review.text && review.text.toLowerCase().includes(searchText)) || 
-                     (review.authorName && review.authorName.toLowerCase().includes(searchText));
+
+      const inMarker = marker && 
+        ((marker.city && marker.city.toLowerCase().includes(searchText)) || 
+         (marker.country && marker.country.toLowerCase().includes(searchText)));
+
+      const inReview = 
+        (review.text && review.text.toLowerCase().includes(searchText)) || 
+        (review.authorName && review.authorName.toLowerCase().includes(searchText));
+
       return inMarker || inReview;
     });
 

@@ -211,9 +211,11 @@ export default function MarkerReviewDialog({
             {reviews.length > 0 ? (
               reviews.map((review) => <ReviewCard key={review.id} review={review} marker={marker} onEdit={() => setEditingReview(review)} onDelete={() => setDeletingReview(review)} />)
             ) : (
-              <div className="text-sm text-muted-foreground text-center py-8">
-                <p>Нет отзывов. Будьте первым, кто оставит один!</p>
-              </div>
+              !isCreatingNewMarker && (
+                <div className="text-sm text-muted-foreground text-center py-8">
+                  <p>Нет отзывов. Будьте первым, кто оставит один!</p>
+                </div>
+              )
             )}
           </div>
         </ScrollArea>
