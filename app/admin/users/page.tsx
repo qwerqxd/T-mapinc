@@ -28,22 +28,30 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { updateUserRole } from '@/ai/flows/update-user-role-flow';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminUsersPage() {
   const { user: currentUser, isLoading: authLoading } = useAuth();
   const firestore = useFirestore();
-  const { data: users, loading: usersLoading } = useCollection<User>(
-    firestore ? collection(firestore, 'users') : null
-  );
-  const { toast } = useToast();
   const router = useRouter();
+  const [isReady, setIsReady] = useState(false);
+
+  // Only fetch users if the current user is an admin.
+  const { data: users, loading: usersLoading } = useCollection<User>(
+    isReady && firestore ? collection(firestore, 'users') : null
+  );
+
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (!authLoading && currentUser?.role !== 'admin') {
-      router.push('/');
+    if (!authLoading) {
+      if (currentUser?.role !== 'admin') {
+        router.push('/');
+      } else {
+        setIsReady(true);
+      }
     }
   }, [currentUser, authLoading, router]);
 
@@ -77,7 +85,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  if (authLoading || usersLoading) {
+  if (!isReady || usersLoading) {
     return (
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-bold mb-6">Управление пользователями</h1>
