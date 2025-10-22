@@ -24,6 +24,7 @@ export type Review = {
   text: string;
   rating: number; // 1-5
   createdAt: Timestamp | Date | string; 
+  updatedAt?: Timestamp | Date | string;
   media?: ReviewMedia[];
 };
 

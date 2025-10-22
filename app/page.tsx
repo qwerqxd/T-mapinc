@@ -11,7 +11,7 @@ import MarkerReviewDialog from '@/components/marker-review-dialog';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -120,19 +120,20 @@ export default function Home() {
     if (!user || !firestore) return;
     const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
     
-    const dataToSave = {
-        ...reviewToUpdate,
+    // Only include fields that are meant to be updated.
+    // Do not include authorId or other immutable fields.
+    const dataToUpdate = {
         ...updatedData,
-        createdAt: serverTimestamp(), // Update timestamp on edit
+        updatedAt: serverTimestamp(), // Use updatedAt for edits
     };
 
-    setDoc(reviewRef, dataToSave, { merge: true }).then(() => {
+    updateDoc(reviewRef, dataToUpdate).then(() => {
         toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
     }).catch(serverError => {
         const permissionError = new FirestorePermissionError({
             path: reviewRef.path,
             operation: 'update',
-            requestResourceData: dataToSave,
+            requestResourceData: dataToUpdate,
         });
         errorEmitter.emit('permission-error', permissionError);
     });
@@ -184,14 +185,13 @@ export default function Home() {
   };
 
 
-  const handleAddMarkerWithReview = (markerData: Omit<MarkerData, 'id'|'createdBy'>, reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleAddMarkerWithReview = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
     if (!user || !newMarkerCoords || !firestore) return;
     
     const markersCollection = collection(firestore, 'markers');
     const newMarkerRef = doc(markersCollection);
-    const newMarker = {
+    const newMarker: Omit<MarkerData, 'id'> & {id: string} = {
       id: newMarkerRef.id,
-      ...markerData,
       createdBy: user.uid,
       lat: newMarkerCoords.lat,
       lng: newMarkerCoords.lng,
@@ -218,6 +218,8 @@ export default function Home() {
                 requestResourceData: newReview,
             });
             errorEmitter.emit('permission-error', permissionError);
+            // If review fails, we should probably delete the marker too
+            deleteDoc(newMarkerRef);
         });
     }).catch(serverError => {
         const permissionError = new FirestorePermissionError({
