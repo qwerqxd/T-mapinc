@@ -9,8 +9,26 @@ import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
-// Note: We're not using the AI flow for this anymore, but keeping the import to avoid breaking changes if it's used elsewhere.
-import { getLocationFromCoords } from '@/ai/flows/get-location-from-coords-flow';
+import { uploadFile, deleteFile } from '@/firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
+
+
+async function processMedia(userId: string, markerId: string, mediaItems: ReviewMedia[]): Promise<ReviewMedia[]> {
+    if (!mediaItems) return [];
+    const uploadPromises = mediaItems.map(async (item) => {
+        if (item.file && !item.storagePath) {
+            const storagePath = `reviews/${userId}/${markerId}/${uuidv4()}-${item.file.name}`;
+            const { downloadURL } = await uploadFile(item.file, storagePath);
+            return {
+                type: item.type,
+                url: downloadURL,
+                storagePath: storagePath,
+            };
+        }
+        return item; // already uploaded or no file attached
+    });
+    return Promise.all(uploadPromises);
+}
 
 export function useMarkers() {
     const firestore = useFirestore();
@@ -23,8 +41,11 @@ export function useMarkers() {
     const addReview = async (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
         if (!user || !firestore) return;
 
-        const newReview = {
+        const processedMedia = await processMedia(user.uid, markerId, reviewData.media || []);
+
+        const newReview: Omit<Review, 'id'> = {
             ...reviewData,
+            media: processedMedia.map(({ file, ...rest }) => rest), // remove File object before saving
             markerId,
             authorId: user.uid,
             authorName: user.name || 'Анонимный пользователь',
@@ -34,17 +55,18 @@ export function useMarkers() {
         };
 
         const reviewsCollection = collection(firestore, 'reviews');
-        try {
-            await addDoc(reviewsCollection, newReview);
-            toast({ title: 'Успех', description: 'Ваш отзыв был отправлен.' });
-        } catch (serverError) {
+        addDoc(reviewsCollection, newReview)
+          .then(() => {
+              toast({ title: 'Успех', description: 'Ваш отзыв был отправлен.' });
+          })
+          .catch((serverError) => {
             const permissionError = new FirestorePermissionError({
                 path: reviewsCollection.path,
                 operation: 'create',
                 requestResourceData: newReview,
             });
             errorEmitter.emit('permission-error', permissionError);
-        }
+          });
     };
 
     const addMarkerWithReview = async (coords: { lat: number; lng: number }, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { name?: string }) => {
@@ -69,7 +91,6 @@ export function useMarkers() {
 
             await setDoc(newMarkerRef, newMarker);
 
-            // remove name from reviewData before adding review
             const { name, ...reviewDataForDb } = reviewData;
             await addReview(newMarkerRef.id, reviewDataForDb);
             
@@ -77,7 +98,6 @@ export function useMarkers() {
             return newMarkerRef.id;
         } catch (error: any) {
             console.error("Error creating marker with review:", error);
-            // This could be a Firestore error during marker creation.
             const permissionError = new FirestorePermissionError({
               path: `markers/[new_marker]`,
               operation: 'create',
@@ -92,22 +112,33 @@ export function useMarkers() {
         if (!user || !firestore) return;
         const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
         
-        const dataToUpdate = {
-            ...updatedData,
+        const processedMedia = await processMedia(user.uid, reviewToUpdate.markerId, updatedData.media || []);
+
+        const dataToUpdate: any = {
+            text: updatedData.text,
+            rating: updatedData.rating,
+            media: processedMedia.map(({ file, ...rest }) => rest), // remove File object
             updatedAt: serverTimestamp(),
         };
 
-        try {
-            await updateDoc(reviewRef, dataToUpdate);
-            toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
-        } catch (serverError) {
-            const permissionError = new FirestorePermissionError({
-                path: reviewRef.path,
-                operation: 'update',
-                requestResourceData: dataToUpdate,
+        const oldMedia = reviewToUpdate.media || [];
+        const newMediaPaths = new Set(processedMedia.map(m => m.storagePath).filter(Boolean));
+        const mediaToDelete = oldMedia.filter(m => m.storagePath && !newMediaPaths.has(m.storagePath));
+        
+        await Promise.all(mediaToDelete.map(m => m.storagePath && deleteFile(m.storagePath)));
+
+        updateDoc(reviewRef, dataToUpdate)
+            .then(() => {
+                toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
+            })
+            .catch((serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: reviewRef.path,
+                    operation: 'update',
+                    requestResourceData: dataToUpdate,
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
-            errorEmitter.emit('permission-error', permissionError);
-        }
     };
 
     const deleteReview = async (reviewToDelete: Review) => {
@@ -115,39 +146,45 @@ export function useMarkers() {
         
         const reviewRef = doc(firestore, 'reviews', reviewToDelete.id);
 
-        try {
-            await deleteDoc(reviewRef);
-            toast({ title: 'Успех', description: 'Ваш отзыв был удален.' });
+        deleteDoc(reviewRef)
+            .then(async () => {
+                toast({ title: 'Успех', description: 'Ваш отзыв был удален.' });
+                
+                if (reviewToDelete.media) {
+                    await Promise.all(reviewToDelete.media.map(m => m.storagePath && deleteFile(m.storagePath)));
+                }
 
-            const otherReviewsForMarker = reviews?.filter(
-                (r) => r.markerId === reviewToDelete.markerId && r.id !== reviewToDelete.id
-            );
+                const otherReviewsForMarker = reviews?.filter(
+                    (r) => r.markerId === reviewToDelete.markerId && r.id !== reviewToDelete.id
+                );
 
-            if (otherReviewsForMarker && otherReviewsForMarker.length === 0) {
-               await deleteMarker(reviewToDelete.markerId);
-            }
-        } catch (error: any) {
-            const permissionError = new FirestorePermissionError({
-                path: reviewRef.path,
-                operation: 'delete',
+                if (otherReviewsForMarker && otherReviewsForMarker.length === 0) {
+                   await deleteMarker(reviewToDelete.markerId);
+                }
+            })
+            .catch((serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: reviewRef.path,
+                    operation: 'delete',
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
-            errorEmitter.emit('permission-error', permissionError);
-        }
     };
 
     const deleteMarker = async (markerId: string) => {
         if(!firestore) return;
         const markerRef = doc(firestore, 'markers', markerId);
-        try {
-            await deleteDoc(markerRef);
-            toast({ title: 'Успех', description: 'Последний отзыв и метка были удалены.' });
-        } catch(markerError) {
-           const permissionError = new FirestorePermissionError({
-              path: markerRef.path,
-              operation: 'delete',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        }
+        deleteDoc(markerRef)
+            .then(() => {
+                toast({ title: 'Успех', description: 'Последний отзыв и метка были удалены.' });
+            })
+            .catch((markerError) => {
+               const permissionError = new FirestorePermissionError({
+                  path: markerRef.path,
+                  operation: 'delete',
+              });
+              errorEmitter.emit('permission-error', permissionError);
+            });
     }
 
     return {
