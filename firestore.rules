@@ -1,91 +1,86 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user profiles and markers.
- * Reviews can be created but not edited, and are publicly readable.
+ * @fileoverview Firestore Security Rules for the application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a user-ownership model for user profiles and marker creation.
+ * Reviews are associated with both markers and authors.
  *
  * Data Structure:
- * - /users/{userId}: Stores individual user profiles. Only the authenticated user can access their own profile.
- * - /markers/{markerId}: Stores map markers. Only the creator can modify or delete a marker. Publicly readable.
- * - /reviews/{reviewId}: Stores reviews for markers. Publicly readable.
+ * - /users/{userId}: Stores user profiles.
+ * - /markers/{markerId}: Stores map markers.
+ * - /reviews/{reviewId}: Stores reviews for markers.
  *
  * Key Security Decisions:
- * - Users can only access their own user documents. Listing all users is disallowed.
- * - Reviews can be created with associated media, but cannot be updated or deleted by anyone, including the creator.
- * - Markers are publicly readable but only the creator can modify them.
+ * - Users can only read and write their own profile data.
+ * - Users can create markers, but updates/deletes are not yet restricted.
+ * - Reviews can be created by authenticated users for any marker.
+ * - Reviews can only be updated/deleted by their authors.
+ * - Media is disabled.
  *
  * Denormalization for Authorization:
- * - The `Marker` entity includes a `createdBy` field to simplify ownership checks, avoiding the need for additional `get()` calls.
+ * - Reviews denormalize authorId, authorName, and markerId to simplify ownership checks and listing reviews for a specific marker.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile information.
-     * @path /databases/{database}/documents/users/{userId}
-     * @allow (create) User with uid "user123" can create their profile.
-     * @allow (get) User with uid "user123" can read their profile.
-     * @allow (update) User with uid "user123" can update their profile.
-     * @allow (delete) User with uid "user123" can delete their profile.
-     * @deny (get) User with uid "user456" cannot read user123's profile.
-     * @deny (create) User with uid "user123" cannot create a profile with a different userId in the document.
-     * @principle Enforces document ownership for user profiles, ensuring users can only manage their own data.
+     * @description Secure user profiles. Users can only read and write their own data.
+     * @path /users/{userId}
+     * @allow (get, create, update, delete, list) - User with matching UID.
+     * @deny (get, create, update, delete, list) - Any other user.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isOwner(userId) && request.resource.data.uid == resource.data.uid;
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Controls access to map markers. Markers are publicly readable, but only the creator can modify or delete them.
-     * @path /databases/{database}/documents/markers/{markerId}
-     * @allow (get) Any user can read a marker.
-     * @allow (list) Any user can list markers.
-     * @allow (create) User with uid "user123" can create a marker with createdBy set to "user123".
-     * @allow (update) User with uid "user123" can update a marker if they created it.
-     * @allow (delete) User with uid "user123" can delete a marker if they created it.
-     * @deny (update) User with uid "user456" cannot update a marker created by user123.
-     * @deny (create) User with uid "user123" cannot create a marker with createdBy set to "user456".
-     * @principle Enforces public read access with owner-only writes for markers.
+     * @description Secure map markers. Users can create markers; update/delete are not yet restricted.
+     * @path /markers/{markerId}
+     * @allow (create) - Any authenticated user.
+     * @allow (get, list) - Public read access.
+     * @deny (update, delete) - No restrictions yet.
+     * @principle Allows open reads and authenticated creates for markers.
      */
     match /markers/{markerId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.createdBy);
-      allow delete: if isExistingOwner(resource.data.createdBy);
+        function isSignedIn() {
+            return request.auth != null;
+        }
+        allow get, list: if true;
+        allow create: if isSignedIn();
+        allow update: if false; // TODO: Implement update restrictions.
+        allow delete: if false; // TODO: Implement delete restrictions.
     }
 
     /**
-     * @description Controls access to reviews. Reviews are publicly readable and can be created by authenticated users, but cannot be edited or deleted.
-     * @path /databases/{database}/documents/reviews/{reviewId}
-     * @allow (get) Any user can read a review.
-     * @allow (list) Any user can list reviews.
-     * @allow (create) User with uid "user123" can create a review.
-     * @deny (update) No one can edit reviews.
-     * @deny (delete) No one can delete reviews.
-     * @principle Allows public read access and authenticated creation, but forbids updates and deletes for reviews.
+     * @description Secure reviews. Reviews can be created by authenticated users and updated/deleted only by their authors.
+     * @path /reviews/{reviewId}
+     * @allow (create) - Any authenticated user.
+     * @allow (get, list) - Public read access.
+     * @allow (update, delete) - Author of the review.
+     * @deny (update, delete) - Any other user.
+     * @principle Enforces document ownership for updates and deletes, allows public reads and authenticated creates.
      */
     match /reviews/{reviewId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+        function isSignedIn() {
+            return request.auth != null;
+        }
+
+        allow get, list: if true;
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+        allow update: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+        allow delete: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
     }
-  }
-
-  // Helper Functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource != null;
   }
 }

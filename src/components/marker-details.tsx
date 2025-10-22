@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
+import type { MarkerData, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import {
   Dialog,
@@ -33,7 +33,7 @@ interface MarkerDetailsProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onAddReview: (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
-  onUpdateReview: (review: Review, updatedData: { text: string; rating: number; media?: ReviewMedia[] }) => void;
+  onUpdateReview: (review: Review, updatedData: { text: string; rating: number; }) => void;
   onDeleteReview: (review: Review) => void;
   onDeleteMarker: (markerId: string) => void;
 }
@@ -46,22 +46,21 @@ export default function MarkerDetails({
   onAddReview,
   onUpdateReview,
   onDeleteReview,
-  onDeleteMarker,
 }: MarkerDetailsProps) {
   const { user } = useAuth();
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [deletingReview, setDeletingReview] = useState<Review | null>(null);
 
 
-  const handleAddSubmit = (reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
+  const handleAddSubmit = (reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
     if (marker) {
       onAddReview(marker.id, reviewData);
     }
   };
 
-  const handleEditSubmit = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
+  const handleEditSubmit = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
     if (editingReview) {
-      onUpdateReview(editingReview, { ...reviewData, media: reviewData.media || [] });
+      onUpdateReview(editingReview, { ...reviewData });
       setEditingReview(null);
     }
   };

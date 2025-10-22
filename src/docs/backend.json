@@ -23,13 +23,18 @@
           "format": "uri",
           "description": "URL of the user's avatar image."
         },
+        "role": {
+          "type": "string",
+          "enum": ["user", "admin"],
+          "description": "The user's role."
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
           "description": "The timestamp when the user was created."
         }
       },
-      "required": ["uid", "name", "email", "createdAt"]
+      "required": ["uid", "name", "email", "role", "createdAt"]
     },
     "Marker": {
       "title": "Marker",
@@ -94,28 +99,6 @@
           "type": "string",
           "format": "date-time",
           "description": "The timestamp when the review was last updated."
-        },
-        "media": {
-          "type": "array",
-          "description": "A list of media items attached to the review.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["image", "video"]
-              },
-              "url": {
-                "type": "string",
-                "format": "uri"
-              },
-               "storagePath": {
-                "type": "string",
-                "description": "Path to the file in Firebase Storage."
-              }
-            },
-            "required": ["type", "url", "storagePath"]
-          }
         }
       },
       "required": ["markerId", "authorId", "authorName", "text", "rating", "createdAt"]

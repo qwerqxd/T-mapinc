@@ -8,9 +8,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
-// Note: We're not using the AI flow for this anymore, but keeping the import to avoid breaking changes if it's used elsewhere.
-import { getLocationFromCoords } from '@/ai/flows/get-location-from-coords-flow';
+import type { MarkerData, Review } from '@/lib/types';
 
 export function useMarkers() {
     const firestore = useFirestore();
@@ -70,7 +68,6 @@ export function useMarkers() {
 
             await setDoc(newMarkerRef, newMarker);
 
-            // remove name from reviewData before adding review
             const { name, ...reviewDataForDb } = reviewData;
             await addReview(newMarkerRef.id, reviewDataForDb);
             
@@ -78,7 +75,6 @@ export function useMarkers() {
             return newMarkerRef.id;
         } catch (error: any) {
             console.error("Error creating marker with review:", error);
-            // This could be a Firestore error during marker creation.
             const permissionError = new FirestorePermissionError({
               path: `markers/[new_marker]`,
               operation: 'create',
@@ -89,7 +85,7 @@ export function useMarkers() {
         return null;
     };
     
-    const updateReview = (reviewToUpdate: Review, updatedData: { text: string; rating: number; media?: ReviewMedia[] }) => {
+    const updateReview = async (reviewToUpdate: Review, updatedData: { text: string; rating: number; }) => {
         if (!user || !firestore) return;
         const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
         

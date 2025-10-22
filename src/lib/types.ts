@@ -10,12 +10,6 @@ export type User = {
   createdAt?: Timestamp | Date | string;
 };
 
-export type ReviewMedia = {
-  type: 'image' | 'video';
-  url: string; // Public URL from Firebase Storage
-  storagePath?: string; // Path in Firebase Storage for deletion
-}
-
 export type Review = {
   id: string;
   markerId: string;
@@ -26,7 +20,6 @@ export type Review = {
   rating: number; // 1-5
   createdAt: Timestamp | Date | string; 
   updatedAt?: Timestamp | Date | string;
-  media?: ReviewMedia[];
 };
 
 export type MarkerData = {
@@ -36,5 +29,3 @@ export type MarkerData = {
   name: string;
   createdBy: string; // user ID
 };
-
-
