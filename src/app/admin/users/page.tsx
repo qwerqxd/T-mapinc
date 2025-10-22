@@ -35,11 +35,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function AdminUsersPage() {
   const { user: currentUser, isLoading: authLoading } = useAuth();
   const firestore = useFirestore();
-  const { data: users, loading: usersLoading } = useCollection<User>(
-    firestore ? collection(firestore, 'users') : null
-  );
-  const { toast } = useToast();
   const router = useRouter();
+
+  // Only fetch users if the current user is an admin.
+  const { data: users, loading: usersLoading } = useCollection<User>(
+    firestore && currentUser?.role === 'admin'
+      ? collection(firestore, 'users')
+      : null
+  );
+
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!authLoading && currentUser?.role !== 'admin') {
