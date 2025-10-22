@@ -8,7 +8,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import type { MarkerData, Review } from '@/lib/types';
+import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
+// Note: We're not using the AI flow for this anymore, but keeping the import to avoid breaking changes if it's used elsewhere.
+import { getLocationFromCoords } from '@/ai/flows/get-location-from-coords-flow';
 import { uploadFile, deleteFile } from '@/firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -40,6 +42,7 @@ export function useMarkers() {
               toast({ title: 'Успех', description: 'Ваш отзыв был отправлен.' });
           })
           .catch((serverError) => {
+            console.error(serverError);
             const permissionError = new FirestorePermissionError({
                 path: reviewsCollection.path,
                 operation: 'create',
@@ -78,6 +81,7 @@ export function useMarkers() {
             return newMarkerRef.id;
         } catch (error: any) {
             console.error("Error creating marker with review:", error);
+            // This could be a Firestore error during marker creation.
             const permissionError = new FirestorePermissionError({
               path: `markers/[new_marker]`,
               operation: 'create',
@@ -88,14 +92,14 @@ export function useMarkers() {
         return null;
     };
     
-    const updateReview = async (reviewToUpdate: Review, updatedData: { text: string; rating: number; }) => {
+    const updateReview = async (reviewToUpdate: Review, updatedData: { text: string; rating: number; media?: ReviewMedia[] }) => {
         if (!user || !firestore) return;
         const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
         
-        // Ensure only allowed fields are being sent
-        const dataToUpdate = {
+        const dataToUpdate: any = {
             text: updatedData.text,
             rating: updatedData.rating,
+            media: updatedData.media || [],
             updatedAt: serverTimestamp(),
         };
 
@@ -104,6 +108,7 @@ export function useMarkers() {
                 toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
             })
             .catch((serverError) => {
+                console.error(serverError);
                 const permissionError = new FirestorePermissionError({
                     path: reviewRef.path,
                     operation: 'update',
@@ -131,6 +136,7 @@ export function useMarkers() {
                 }
             })
             .catch((serverError) => {
+                console.error(serverError);
                 const permissionError = new FirestorePermissionError({
                     path: reviewRef.path,
                     operation: 'delete',
@@ -147,6 +153,7 @@ export function useMarkers() {
                 toast({ title: 'Успех', description: 'Последний отзыв и метка были удалены.' });
             })
             .catch((markerError) => {
+                console.error(markerError);
                const permissionError = new FirestorePermissionError({
                   path: markerRef.path,
                   operation: 'delete',

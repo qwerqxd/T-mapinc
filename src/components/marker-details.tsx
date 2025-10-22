@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { MarkerData, Review } from '@/lib/types';
+import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import {
   Dialog,
@@ -33,7 +33,7 @@ interface MarkerDetailsProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onAddReview: (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
-  onUpdateReview: (review: Review, updatedData: { text: string; rating: number; }) => void;
+  onUpdateReview: (review: Review, updatedData: { text: string; rating: number; media?: ReviewMedia[] }) => void;
   onDeleteReview: (review: Review) => void;
   onDeleteMarker: (markerId: string) => void;
 }
@@ -46,6 +46,7 @@ export default function MarkerDetails({
   onAddReview,
   onUpdateReview,
   onDeleteReview,
+  onDeleteMarker,
 }: MarkerDetailsProps) {
   const { user } = useAuth();
   const [editingReview, setEditingReview] = useState<Review | null>(null);
@@ -60,7 +61,7 @@ export default function MarkerDetails({
 
   const handleEditSubmit = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
     if (editingReview) {
-      onUpdateReview(editingReview, { ...reviewData });
+      onUpdateReview(editingReview, { ...reviewData, media: reviewData.media || [] });
       setEditingReview(null);
     }
   };
