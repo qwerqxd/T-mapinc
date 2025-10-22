@@ -46,7 +46,7 @@ export function StarRating({
             className={cn(
               'h-5 w-5',
               fillValue >= index
-                ? 'text-accent fill-accent'
+                ? 'text-yellow-400 fill-yellow-400'
                 : 'text-muted-foreground/50',
               interactive && 'cursor-pointer transition-transform hover:scale-125',
               starClassName
