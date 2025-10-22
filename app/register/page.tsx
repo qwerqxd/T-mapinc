@@ -23,10 +23,10 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    const success = await register(name, email, password);
+    const result = await register(name, email, password);
     setIsLoading(false);
 
-    if (success) {
+    if (result.success) {
       toast({
         title: 'Регистрация прошла успешно',
         description: 'Теперь вы можете войти со своими учетными данными.',
@@ -35,7 +35,7 @@ export default function RegisterPage() {
     } else {
       toast({
         title: 'Ошибка регистрации',
-        description: 'Пользователь с таким email уже существует или произошла другая ошибка. Пожалуйста, попробуйте еще раз.',
+        description: result.error || 'Произошла неизвестная ошибка. Пожалуйста, попробуйте еще раз.',
         variant: 'destructive',
       });
     }
