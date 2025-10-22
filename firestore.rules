@@ -1,71 +1,91 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user profiles and markers.
+ * Reviews can be created but not edited, and are publicly readable.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores individual user profiles. Only the authenticated user can access their own profile.
+ * - /markers/{markerId}: Stores map markers. Only the creator can modify or delete a marker. Publicly readable.
+ * - /reviews/{reviewId}: Stores reviews for markers. Publicly readable.
+ *
+ * Key Security Decisions:
+ * - Users can only access their own user documents. Listing all users is disallowed.
+ * - Reviews can be created with associated media, but cannot be updated or deleted by anyone, including the creator.
+ * - Markers are publicly readable but only the creator can modify them.
+ *
+ * Denormalization for Authorization:
+ * - The `Marker` entity includes a `createdBy` field to simplify ownership checks, avoiding the need for additional `get()` calls.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secures user profiles, ensuring only the owner can read and write their own data.
+     * @description Controls access to user profile information.
      * @path /databases/{database}/documents/users/{userId}
-     * @allow (read, write) - User with UID 'user123' can read/write document 'user123'.
-     * @deny (read, write) - User with UID 'user456' cannot read/write document 'user123'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with uid "user123" can create their profile.
+     * @allow (get) User with uid "user123" can read their profile.
+     * @allow (update) User with uid "user123" can update their profile.
+     * @allow (delete) User with uid "user123" can delete their profile.
+     * @deny (get) User with uid "user456" cannot read user123's profile.
+     * @deny (create) User with uid "user123" cannot create a profile with a different userId in the document.
+     * @principle Enforces document ownership for user profiles, ensuring users can only manage their own data.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // No listing of users.
-      allow create: if isSignedIn() && isOwner(userId) && request.auth.uid == userId;
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Allows public read access to markers, but restricts creation, update, and deletion to authenticated users.
+     * @description Controls access to map markers. Markers are publicly readable, but only the creator can modify or delete them.
      * @path /databases/{database}/documents/markers/{markerId}
-     * @allow (read) - Any user can read marker data.
-     * @allow (create) - Authenticated user can create a marker.
-     * @deny (create) - Unauthenticated user cannot create a marker.
-     * @deny (update, delete) - Only the owner of a marker can update or delete it.
-     * @principle Allows public read access with owner-only writes for markers.
+     * @allow (get) Any user can read a marker.
+     * @allow (list) Any user can list markers.
+     * @allow (create) User with uid "user123" can create a marker with createdBy set to "user123".
+     * @allow (update) User with uid "user123" can update a marker if they created it.
+     * @allow (delete) User with uid "user123" can delete a marker if they created it.
+     * @deny (update) User with uid "user456" cannot update a marker created by user123.
+     * @deny (create) User with uid "user123" cannot create a marker with createdBy set to "user456".
+     * @principle Enforces public read access with owner-only writes for markers.
      */
     match /markers/{markerId} {
-        function isSignedIn() {
-            return request.auth != null;
-        }
-
-        allow get, list: if true;
-        allow create: if isSignedIn();
-        allow update: if false; // Updating markers is disallowed in this prototype.
-        allow delete: if false; // Deleting markers is disallowed in this prototype.
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.createdBy);
+      allow delete: if isExistingOwner(resource.data.createdBy);
     }
 
     /**
-     * @description Secures reviews, ensuring only the author can manage them.
+     * @description Controls access to reviews. Reviews are publicly readable and can be created by authenticated users, but cannot be edited or deleted.
      * @path /databases/{database}/documents/reviews/{reviewId}
-     * @allow (read) - Any user can read a review.
-     * @allow (create, update, delete) - Only the author of the review can create, update, or delete it.
-     * @deny (create, update, delete) - Another user cannot modify or delete someone else's review.
-     * @principle Enforces document ownership for reviews.
+     * @allow (get) Any user can read a review.
+     * @allow (list) Any user can list reviews.
+     * @allow (create) User with uid "user123" can create a review.
+     * @deny (update) No one can edit reviews.
+     * @deny (delete) No one can delete reviews.
+     * @principle Allows public read access and authenticated creation, but forbids updates and deletes for reviews.
      */
     match /reviews/{reviewId} {
-        function isSignedIn() {
-            return request.auth != null;
-        }
-
-        function isOwner() {
-            return request.resource.data.authorId == request.auth.uid;
-        }
-
-        allow get, list: if true;
-        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-        allow update: if isSignedIn() && isOwner();
-        allow delete: if isSignedIn() && isOwner();
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if false;
+      allow delete: if false;
     }
+  }
+
+  // Helper Functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource != null;
   }
 }
