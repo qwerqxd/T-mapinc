@@ -82,11 +82,11 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
                     {review.media.map((media, index) => (
                       <CarouselItem key={index}>
                         <div className="p-1">
-                           <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+                           <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
                             {media.type === 'image' ? (
-                                <img src={media.url} alt={`Review media ${index + 1}`} className="w-full h-full object-cover" />
+                                <img src={media.url} alt={`Review media ${index + 1}`} className="w-full h-full object-contain" />
                             ) : (
-                                <video src={media.url} controls className="w-full h-full object-cover" />
+                                <video src={media.url} controls className="w-full h-full object-contain" />
                             )}
                              <div className="absolute bottom-2 left-2 bg-black/50 text-white p-1 rounded-full">
                                 {media.type === 'image' ? <FileImage className="h-4 w-4" /> : <Video className="h-4 w-4" />}

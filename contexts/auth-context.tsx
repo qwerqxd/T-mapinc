@@ -19,9 +19,9 @@ import { FirestorePermissionError } from '@/firebase/errors';
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
 }
 
@@ -43,8 +43,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (userDocSnap.exists()) {
         setUser(userDocSnap.data() as User);
       } else {
+        // This can happen if user is created in Auth but not in Firestore yet
+        // Let's not set user to null here, maybe the creation is in progress
         console.log(`User document for ${fbUser.uid} not found. This may be expected during registration.`);
-        setUser(null);
       }
     } catch (error) {
       const permissionError = new FirestorePermissionError({
@@ -70,18 +71,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth, firestore]);
   
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle the rest
-      return true;
+      // onAuthStateChanged will handle the rest, including setting loading to false
+      return { success: true };
     } catch (error: any) {
       console.error('Login error:', error.message);
       setIsLoading(false);
-      return false;
+      let errorMessage = 'Произошла неизвестная ошибка.';
+      switch (error.code) {
+        case 'auth/invalid-credential':
+          errorMessage = 'Неверный email или пароль.';
+          break;
+        case 'auth/user-not-found':
+          errorMessage = 'Пользователь с таким email не найден.';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'Неверный пароль.';
+          break;
+        default:
+          errorMessage = 'Ошибка входа. Пожалуйста, попробуйте еще раз.';
+          break;
+      }
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -94,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const register = async (name: string, email: string, password: string): Promise<boolean> => {
+  const register = async (name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -102,11 +119,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       const photoURL = `https://picsum.photos/seed/${newUser.uid}/100/100`;
       
+      // We update the auth profile first
       await updateProfile(newUser, { 
         displayName: name,
         photoURL: photoURL
       });
 
+      // Then create the user document in Firestore
       const userDocRef = doc(firestore, 'users', newUser.uid);
       const userData: User = {
           uid: newUser.uid,
@@ -119,28 +138,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       await setDoc(userDocRef, userData);
       
-      // We set the user manually here to avoid waiting for onAuthStateChanged to refetch
-      // setUser(userData); this will cause a mismatch with server generated timestamp
-      // Let onAuthStateChanged handle fetching the complete user data
-      
-      return true;
+      // onAuthStateChanged will be triggered automatically and will handle loading the new user data.
+      // We don't need to manually set the user or loading state here.
+      return { success: true };
 
     } catch (error: any) {
-       // Check if it's a Firestore error
+       let errorMessage = 'Произошла неизвестная ошибка.';
        if (error.name === 'FirestoreError' || error.code?.startsWith('permission-denied')) {
-         const userDocRef = doc(firestore, error.uid || 'unknown-uid'); // Try to get UID if possible
+         const userDocRef = doc(firestore, 'unknown-uid');
          const permissionError = new FirestorePermissionError({
            path: userDocRef.path,
            operation: 'create',
-           // requestResourceData is tricky here, but we can approximate it.
          });
          errorEmitter.emit('permission-error', permissionError);
+         errorMessage = 'Ошибка сохранения данных пользователя.';
        } else {
-         // Handle auth-specific errors
          console.error("Registration auth error:", error.message);
+         switch (error.code) {
+            case 'auth/email-already-in-use':
+              errorMessage = 'Пользователь с таким email уже существует.';
+              break;
+            case 'auth/weak-password':
+              errorMessage = 'Пароль слишком слабый. Он должен содержать не менее 6 символов.';
+              break;
+            default:
+              errorMessage = 'Ошибка регистрации. Пожалуйста, попробуйте еще раз.';
+              break;
+         }
        }
        setIsLoading(false);
-       return false;
+       return { success: false, error: errorMessage };
     }
   };
 

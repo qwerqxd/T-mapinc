@@ -49,12 +49,16 @@
           "type": "number",
           "description": "The longitude of the marker."
         },
+        "name": {
+          "type": "string",
+          "description": "The name of the location of the marker."
+        },
         "createdBy": {
           "type": "string",
           "description": "The UID of the user who created the marker."
         }
       },
-      "required": ["lat", "lng", "createdBy"]
+      "required": ["lat", "lng", "createdBy", "name"]
     },
     "Review": {
       "title": "Review",

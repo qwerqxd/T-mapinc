@@ -3,7 +3,7 @@
 import { useAuth } from '@/contexts/auth-context';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase';
-import { collection, CollectionReference } from 'firebase/firestore';
+import { collection, type CollectionReference } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 import { AlertTriangle, Shield, User as UserIcon, Loader2 } from 'lucide-react';
 import {

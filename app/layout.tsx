@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import PreAlphaWarning from '@/components/pre-alpha-warning';
 import CookieConsentBanner from '@/components/cookie-consent-banner';
 import { YMaps } from '@pbe/react-yandex-maps';
+import AppHeader from '@/components/app-header';
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] });
 
@@ -34,7 +35,8 @@ export default function RootLayout({
           <FirebaseClientProvider>
             <AuthProvider>
               <div className="flex flex-col min-h-screen">
-                <main className="flex-grow">{children}</main>
+                <AppHeader />
+                <main className="flex-grow bg-background">{children}</main>
                 <footer className="bg-card border-t p-4 text-center text-sm text-muted-foreground">
                   <p>© {new Date().getFullYear()} T-mapinc. Все права защищены.</p>
                 </footer>
