@@ -1,6 +1,9 @@
-<<<<<<< HEAD
+'use server';
+// This file is used to import flows for their side effects in development.
 import { config } from 'dotenv';
+
 config();
-=======
-// Flows will be imported for their side effects in this file.
->>>>>>> dd6cf03 (Initialized workspace with Firebase Studio)
+
+// Import flows here for their side effects.
+import './flows/get-location-from-coords-flow';
+import './flows/update-user-role-flow';
