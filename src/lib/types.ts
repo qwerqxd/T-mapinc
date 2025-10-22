@@ -14,6 +14,7 @@ export type ReviewMedia = {
   type: 'image' | 'video';
   url: string;
   storagePath?: string;
+  file?: File;
 }
 
 export type Review = {
@@ -36,6 +37,3 @@ export type MarkerData = {
   name: string;
   createdBy: string; // user ID
 };
-
-
-

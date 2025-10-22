@@ -49,7 +49,7 @@ interface MarkerReviewDialogProps {
   newRating: number;
   setNewRating: (rating: number) => void;
   newMedia: ReviewMedia[];
-  setNewMedia: (media: ReviewMedia[]) => void;
+  setNewMedia: (media: ReviewMedia[] | ((prev: ReviewMedia[]) => ReviewMedia[])) => void;
 }
 
 export default function MarkerReviewDialog({
@@ -128,12 +128,12 @@ export default function MarkerReviewDialog({
               variant: 'destructive',
             });
           } else {
-            setNewMedia(prev => [...prev, { type: 'video', url: URL.createObjectURL(file) }]);
+            setNewMedia(prev => [...prev, { type: 'video', url: URL.createObjectURL(file), file: file }]);
           }
         };
         video.src = URL.createObjectURL(file);
       } else {
-        setNewMedia(prev => [...prev, { type: 'image', url: URL.createObjectURL(file) }]);
+        setNewMedia(prev => [...prev, { type: 'image', url: URL.createObjectURL(file), file: file }]);
       }
     });
   };

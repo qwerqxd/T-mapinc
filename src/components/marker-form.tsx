@@ -12,11 +12,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { StarRating } from '@/components/star-rating';
 import { useAuth } from '@/contexts/auth-context';
-import type { Review } from '@/lib/types';
+import type { Review, ReviewMedia } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Paperclip, X, FileImage, Video, Loader2 } from 'lucide-react';
 import { Input } from './ui/input';
 
 
@@ -43,22 +44,70 @@ export default function MarkerForm({
 }: MarkerFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   
   const [text, setText] = useState('');
   const [rating, setRating] = useState(0);
+  const [media, setMedia] = useState<ReviewMedia[]>([]);
   const [name, setName] = useState('');
 
   useEffect(() => {
     if (isEditing && initialData) {
       setText(initialData.text);
       setRating(initialData.rating);
+      setMedia(initialData.media || []);
     } else if (!isEditing) { // Reset when dialog opens for creation
       setText('');
       setRating(0);
+      setMedia([]);
       setName('');
     }
   }, [isEditing, initialData, isOpen]);
+
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    if (media.length + files.length > 10) {
+      toast({
+        title: 'Ошибка',
+        description: 'Вы можете загрузить не более 10 медиафайлов.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    Array.from(files).forEach(file => {
+      const fileType = file.type.startsWith('image') ? 'image' : 'video';
+      const objectURL = URL.createObjectURL(file);
+      
+      if (fileType === 'video') {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => {
+          window.URL.revokeObjectURL(video.src);
+          if (video.duration > 30) {
+            toast({
+              title: 'Ошибка',
+              description: `Видео "${file.name}" длиннее 30 секунд.`,
+              variant: 'destructive',
+            });
+          } else {
+            setMedia((prev: ReviewMedia[]) => [...prev, { type: 'video', url: objectURL, file: file }]);
+          }
+        };
+        video.src = objectURL;
+      } else {
+        setMedia((prev: ReviewMedia[]) => [...prev, { type: 'image', url: objectURL, file: file }]);
+      }
+    });
+  };
+
+  const removeMedia = (url: string) => {
+    setMedia((prev: ReviewMedia[]) => prev.filter(item => item.url !== url));
+  };
 
 
   const handleSubmit = () => {
@@ -72,7 +121,7 @@ export default function MarkerForm({
           return;
         }
 
-        const reviewData = { name, text, rating };
+        const reviewData = { name, text, rating, media };
 
         if(onMarkerCreate && coords) {
             onMarkerCreate(reviewData);
@@ -86,6 +135,7 @@ export default function MarkerForm({
         if (!isEditing) {
           setText('');
           setRating(0);
+          setMedia([]);
           setName('');
         }
     });
@@ -114,6 +164,49 @@ export default function MarkerForm({
           onChange={(e) => setText(e.target.value)}
           disabled={isPending}
         />
+
+        <div className="space-y-2">
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
+            <Paperclip className="mr-2 h-4 w-4" />
+            Прикрепить медиа
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            multiple
+            accept="image/*,video/*"
+            onChange={handleFileChange}
+            className="hidden"
+            disabled={isPending}
+          />
+          {media.length > 0 && (
+            <ScrollArea className="w-full h-32">
+              <div className="flex space-x-2 p-1">
+                {media.map((mediaItem, index) => (
+                  <div key={index} className="relative flex-shrink-0 w-24 h-24 rounded-md overflow-hidden">
+                    {mediaItem.type === 'image' ? (
+                      <img src={mediaItem.url} alt="preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <video src={mediaItem.url} className="w-full h-full object-cover" />
+                    )}
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-5 w-5"
+                      onClick={() => removeMedia(mediaItem.url)}
+                      disabled={isPending}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                    <div className="absolute bottom-1 left-1 bg-black/50 text-white p-1 rounded">
+                      {mediaItem.type === 'image' ? <FileImage className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </div>
       </div>
       <DialogFooter className="pt-4">
         {isEditing && onCancelEdit && (
