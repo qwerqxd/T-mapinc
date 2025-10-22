@@ -231,6 +231,10 @@ export default function Home() {
         errorEmitter.emit('permission-error', permissionError);
     });
   };
+  
+  const handleMapTypeChange = (newType: 'yandex#map' | 'yandex#satellite' | 'yandex#hybrid') => {
+    setMapType(newType);
+  };
 
   const selectedMarker = markers?.find((m) => m.id === selectedMarkerId);
 
@@ -263,7 +267,7 @@ export default function Home() {
               onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
               onMapClick={handleMapClick}
               mapType={mapType}
-              onMapTypeChange={setMapType}
+              onMapTypeChange={handleMapTypeChange}
             />
           </div>
         </main>
