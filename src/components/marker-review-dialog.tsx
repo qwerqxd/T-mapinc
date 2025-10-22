@@ -40,7 +40,7 @@ interface MarkerReviewDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onReviewSubmit: (review: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => void;
-  onMarkerCreate: (marker: Omit<MarkerData, 'id'|'createdBy'>, review: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
+  onMarkerCreate: (review: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
   onReviewUpdate: (reviewToUpdate: Review, updatedData: { text: string; rating: number; media: ReviewMedia[] }) => void;
   onReviewDelete: (review: Review) => void;
   newReviewText: string;
@@ -74,29 +74,27 @@ export default function MarkerReviewDialog({
   const [deletingReview, setDeletingReview] = useState<Review | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const resetForm = () => {
-    setNewReviewText('');
-    setNewRating(0);
-    setNewMedia([]);
-  };
-
   useEffect(() => {
-    if (!isOpen) {
-      resetForm();
+    if (isOpen) {
+      setNewReviewText('');
+      setNewRating(0);
+      setNewMedia([]);
       setEditingReview(null);
       setDeletingReview(null);
     }
-  }, [isOpen]);
+  }, [isOpen, marker, coords, setNewReviewText, setNewRating, setNewMedia]);
 
   useEffect(() => {
-    if (editingReview) {
+    if(editingReview) {
       setNewReviewText(editingReview.text);
       setNewRating(editingReview.rating);
       setNewMedia(editingReview.media || []);
     } else {
-      // Don't reset here when canceling edit, let the user continue typing a new review
+      setNewReviewText('');
+      setNewRating(0);
+      setNewMedia([]);
     }
-  }, [editingReview]);
+  }, [editingReview, setNewReviewText, setNewRating, setNewMedia]);
 
 
   const isCreatingNewMarker = !marker && !!coords;
@@ -163,23 +161,14 @@ export default function MarkerReviewDialog({
       onReviewUpdate(editingReview, reviewData);
       setEditingReview(null);
     } else if (isCreatingNewMarker && coords) {
-        onMarkerCreate(
-          { country: '', city: '', lat: coords.lat, lng: coords.lng },
-          reviewData
-        );
+        onMarkerCreate(reviewData);
     } else if (marker) {
         onReviewSubmit({
             markerId: marker.id,
             ...reviewData
         });
     }
-    resetForm();
   };
-
-  const handleCancelEdit = () => {
-    setEditingReview(null);
-    resetForm();
-  }
 
   const handleConfirmDelete = () => {
     if (deletingReview) {
@@ -190,8 +179,9 @@ export default function MarkerReviewDialog({
 
   const getMarkerTitle = () => {
     if (isCreatingNewMarker) return "Новый отзыв";
-    if (reviews.length > 0) {
-        return `Отзывы о месте`;
+    if (marker) {
+      const title = [marker.city, marker.country].filter(Boolean).join(', ');
+      return title || 'Отзывы о месте';
     }
     return 'Отзывы об этом месте';
   }
@@ -221,11 +211,9 @@ export default function MarkerReviewDialog({
             {reviews.length > 0 ? (
               reviews.map((review) => <ReviewCard key={review.id} review={review} onEdit={() => setEditingReview(review)} onDelete={() => setDeletingReview(review)} />)
             ) : (
-               !isCreatingNewMarker && (
-                <div className="text-sm text-muted-foreground text-center py-8">
-                  <p>Нет отзывов. Будьте первым, кто оставит один!</p>
-                </div>
-               )
+              <div className="text-sm text-muted-foreground text-center py-8">
+                <p>Нет отзывов. Будьте первым, кто оставит один!</p>
+              </div>
             )}
           </div>
         </ScrollArea>
@@ -284,11 +272,11 @@ export default function MarkerReviewDialog({
 
                <DialogFooter>
                 {editingReview && (
-                  <Button variant="ghost" onClick={handleCancelEdit}>Отмена</Button>
+                  <Button variant="ghost" onClick={() => setEditingReview(null)}>Отмена</Button>
                 )}
                 <Button onClick={handleSubmit} className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    {editingReview ? 'Сохранить изменения' : isCreatingNewMarker ? 'Добавить метку и отзыв' : 'Отправить отзыв'}
+                    {editingReview ? 'Сохранить изменения' : 'Отправить отзыв'}
                 </Button>
                </DialogFooter>
             </div>

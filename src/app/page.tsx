@@ -1,8 +1,8 @@
 
 'use client';
 
-import { YMaps } from '@pbe/react-yandex-maps';
-import { useState } from 'react';
+import { YMaps, useYMaps } from '@pbe/react-yandex-maps';
+import { useState, useEffect, useCallback } from 'react';
 import type { MarkerData, Review } from '@/lib/types';
 import AppHeader from '@/components/app-header';
 import ReviewsSidebar from '@/components/reviews-sidebar';
@@ -11,7 +11,7 @@ import MarkerReviewDialog from '@/components/marker-review-dialog';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -33,8 +33,9 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c; // in metres
 }
 
-export default function Home() {
+function InnerHome() {
   const firestore = useFirestore();
+  const ymaps = useYMaps(['geocode']);
   const { data: markers, loading: markersLoading } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') : null);
   const { data: reviews, loading: reviewsLoading } = useCollection<Review>(firestore ? collection(firestore, 'reviews') : null);
   
@@ -102,7 +103,10 @@ export default function Home() {
     const reviewsCollection = collection(firestore, 'reviews');
     addDoc(reviewsCollection, newReview).then(() => {
         toast({ title: 'Успех', description: 'Ваш отзыв был отправлен.'});
-        // Form will be reset inside the dialog
+        // We don't close the dialog so user can see their new review.
+        setNewReviewText('');
+        setNewRating(0);
+        setNewMedia([]);
     }).catch(serverError => {
       const permissionError = new FirestorePermissionError({
         path: reviewsCollection.path,
@@ -115,22 +119,15 @@ export default function Home() {
 
   const handleUpdateReview = (reviewToUpdate: Review, updatedData: { text: string; rating: number; media?: {type: 'image' | 'video', url: string}[] }) => {
     if (!user || !firestore) return;
-
-     if (user.uid !== reviewToUpdate.authorId && user.role !== 'admin') {
-      toast({ title: 'Ошибка', description: 'Вы не можете редактировать этот отзыв.', variant: 'destructive'});
-      return;
-    }
-
     const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
     
     const dataToSave = {
-        text: updatedData.text,
-        rating: updatedData.rating,
-        media: updatedData.media || [],
-        updatedAt: serverTimestamp(),
+        ...reviewToUpdate,
+        ...updatedData,
+        createdAt: serverTimestamp(), // Update timestamp on edit
     };
 
-    updateDoc(reviewRef, dataToSave).then(() => {
+    setDoc(reviewRef, dataToSave, { merge: true }).then(() => {
         toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
     }).catch(serverError => {
         const permissionError = new FirestorePermissionError({
@@ -151,10 +148,6 @@ export default function Home() {
       });
       return;
     }
-     if (user.uid !== reviewToDelete.authorId && user.role !== 'admin') {
-      toast({ title: 'Ошибка', description: 'Вы не можете удалить этот отзыв.', variant: 'destructive'});
-      return;
-    }
     
     const reviewRef = doc(firestore, 'reviews', reviewToDelete.id);
 
@@ -173,7 +166,6 @@ export default function Home() {
         try {
           await deleteDoc(markerRef);
           toast({ title: 'Успех', description: 'Последний отзыв и метка были удалены.' });
-           closeDialogs();
         } catch(markerError) {
            const permissionError = new FirestorePermissionError({
               path: markerRef.path,
@@ -182,6 +174,7 @@ export default function Home() {
           errorEmitter.emit('permission-error', permissionError);
         }
       }
+      closeDialogs();
     } catch (error: any) {
         const permissionError = new FirestorePermissionError({
             path: reviewRef.path,
@@ -192,17 +185,36 @@ export default function Home() {
   };
 
 
-  const handleAddMarkerWithReview = (markerData: Omit<MarkerData, 'id'|'createdBy'>, reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const getGeoData = useCallback(async (lat: number, lng: number): Promise<{country: string, city: string}> => {
+    if (!ymaps) return { country: '', city: '' };
+    try {
+      const res = await ymaps.geocode([lat, lng], { kind: 'locality', results: 1 });
+      const firstGeoObject = res.geoObjects.get(0);
+      
+      const country = firstGeoObject.getCountry() || '';
+      const city = firstGeoObject.getLocalities().length > 0 ? firstGeoObject.getLocalities()[0] : '';
+      
+      return { country, city };
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      return { country: '', city: '' };
+    }
+  }, [ymaps]);
+  
+  const handleAddMarkerWithReview = async (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
     if (!user || !newMarkerCoords || !firestore) return;
     
+    const { country, city } = await getGeoData(newMarkerCoords.lat, newMarkerCoords.lng);
+
     const markersCollection = collection(firestore, 'markers');
     const newMarkerRef = doc(markersCollection);
-    const newMarker = {
+    const newMarker: MarkerData = {
       id: newMarkerRef.id,
-      ...markerData,
       createdBy: user.uid,
       lat: newMarkerCoords.lat,
       lng: newMarkerCoords.lng,
+      country,
+      city
     };
     
     setDoc(newMarkerRef, newMarker).then(() => {
@@ -226,6 +238,8 @@ export default function Home() {
                 requestResourceData: newReview,
             });
             errorEmitter.emit('permission-error', permissionError);
+            // If review fails, we should probably delete the marker too
+            deleteDoc(newMarkerRef);
         });
     }).catch(serverError => {
         const permissionError = new FirestorePermissionError({
@@ -251,12 +265,6 @@ export default function Home() {
   const allReviewsForMarker = reviews?.filter(r => r.markerId === selectedMarkerId) || [];
 
   return (
-    <YMaps
-      query={{
-        apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY,
-        lang: 'ru_RU',
-      }}
-    >
       <div className="flex h-dvh w-full flex-col font-body">
         <AppHeader />
         <main className="grid flex-1 grid-cols-1 md:grid-cols-[380px_1fr] lg:grid-cols-[420px_1fr] xl:grid-cols-[480px_1fr] overflow-hidden">
@@ -289,6 +297,18 @@ export default function Home() {
           setNewMedia={setNewMedia}
         />
       </div>
-    </YMaps>
   );
+}
+
+export default function Home() {
+  return (
+     <YMaps
+      query={{
+        apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY,
+        lang: 'ru_RU',
+      }}
+    >
+      <InnerHome />
+    </YMaps>
+  )
 }
