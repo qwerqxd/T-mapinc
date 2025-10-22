@@ -74,29 +74,29 @@ export default function MarkerReviewDialog({
   const [deletingReview, setDeletingReview] = useState<Review | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const resetForm = () => {
+    setNewReviewText('');
+    setNewRating(0);
+    setNewMedia([]);
+  };
+
   useEffect(() => {
-    if (isOpen) {
-      // Do not reset fields when just opening the dialog
-      // They are reset when a review is submitted/edited.
-    } else {
-       // Reset everything when dialog closes
-      setNewReviewText('');
-      setNewRating(0);
-      setNewMedia([]);
+    if (!isOpen) {
+      resetForm();
       setEditingReview(null);
       setDeletingReview(null);
     }
-  }, [isOpen, setNewReviewText, setNewRating, setNewMedia]);
+  }, [isOpen]);
 
   useEffect(() => {
-    if(editingReview) {
+    if (editingReview) {
       setNewReviewText(editingReview.text);
       setNewRating(editingReview.rating);
       setNewMedia(editingReview.media || []);
     } else {
-      // Don't reset here, to allow typing a new review after canceling an edit
+      // Don't reset here when canceling edit, let the user continue typing a new review
     }
-  }, [editingReview, setNewReviewText, setNewRating, setNewMedia]);
+  }, [editingReview]);
 
 
   const isCreatingNewMarker = !marker && !!coords;
@@ -173,18 +173,12 @@ export default function MarkerReviewDialog({
             ...reviewData
         });
     }
-    
-    // Reset form after submission
-    setNewReviewText('');
-    setNewRating(0);
-    setNewMedia([]);
+    resetForm();
   };
-  
+
   const handleCancelEdit = () => {
     setEditingReview(null);
-    setNewReviewText('');
-    setNewRating(0);
-    setNewMedia([]);
+    resetForm();
   }
 
   const handleConfirmDelete = () => {
@@ -227,11 +221,11 @@ export default function MarkerReviewDialog({
             {reviews.length > 0 ? (
               reviews.map((review) => <ReviewCard key={review.id} review={review} onEdit={() => setEditingReview(review)} onDelete={() => setDeletingReview(review)} />)
             ) : (
-              !isCreatingNewMarker && (
-              <div className="text-sm text-muted-foreground text-center py-8">
-                <p>Нет отзывов. Будьте первым, кто оставит один!</p>
-              </div>
-              )
+               !isCreatingNewMarker && (
+                <div className="text-sm text-muted-foreground text-center py-8">
+                  <p>Нет отзывов. Будьте первым, кто оставит один!</p>
+                </div>
+               )
             )}
           </div>
         </ScrollArea>

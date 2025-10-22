@@ -11,7 +11,7 @@ import MarkerReviewDialog from '@/components/marker-review-dialog';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -50,11 +50,6 @@ export default function Home() {
 
   const { user } = useAuth();
   const { toast } = useToast();
-  
-  const [newReviewText, setNewReviewText] = useState('');
-  const [newRating, setNewRating] = useState(0);
-  const [newMedia, setNewMedia] = useState<{type: 'image' | 'video', url: string}[]>([]);
-
 
   const handleMapClick = (lat: number, lng: number) => {
     if (!user) {
@@ -107,9 +102,7 @@ export default function Home() {
     const reviewsCollection = collection(firestore, 'reviews');
     addDoc(reviewsCollection, newReview).then(() => {
         toast({ title: 'Успех', description: 'Ваш отзыв был отправлен.'});
-        setNewReviewText('');
-        setNewRating(0);
-        setNewMedia([]);
+        // Form will be reset inside the dialog
     }).catch(serverError => {
       const permissionError = new FirestorePermissionError({
         path: reviewsCollection.path,
@@ -123,7 +116,7 @@ export default function Home() {
   const handleUpdateReview = (reviewToUpdate: Review, updatedData: { text: string; rating: number; media?: {type: 'image' | 'video', url: string}[] }) => {
     if (!user || !firestore) return;
 
-    if (user.uid !== reviewToUpdate.authorId && user.role !== 'admin') {
+     if (user.uid !== reviewToUpdate.authorId && user.role !== 'admin') {
       toast({ title: 'Ошибка', description: 'Вы не можете редактировать этот отзыв.', variant: 'destructive'});
       return;
     }
@@ -134,10 +127,10 @@ export default function Home() {
         text: updatedData.text,
         rating: updatedData.rating,
         media: updatedData.media || [],
-        updatedAt: serverTimestamp(), // Update timestamp on edit
+        updatedAt: serverTimestamp(),
     };
 
-    setDoc(reviewRef, dataToSave, { merge: true }).then(() => {
+    updateDoc(reviewRef, dataToSave).then(() => {
         toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
     }).catch(serverError => {
         const permissionError = new FirestorePermissionError({
@@ -158,8 +151,7 @@ export default function Home() {
       });
       return;
     }
-
-    if (user.uid !== reviewToDelete.authorId && user.role !== 'admin') {
+     if (user.uid !== reviewToDelete.authorId && user.role !== 'admin') {
       toast({ title: 'Ошибка', description: 'Вы не можете удалить этот отзыв.', variant: 'destructive'});
       return;
     }
@@ -181,7 +173,7 @@ export default function Home() {
         try {
           await deleteDoc(markerRef);
           toast({ title: 'Успех', description: 'Последний отзыв и метка были удалены.' });
-          closeDialogs(); // Close dialog if marker is also deleted
+           closeDialogs();
         } catch(markerError) {
            const permissionError = new FirestorePermissionError({
               path: markerRef.path,
@@ -227,10 +219,6 @@ export default function Home() {
             setNewMarkerCoords(null);
             setSelectedMarkerId(newMarker.id);
             toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
-            // Reset form fields
-            setNewReviewText('');
-            setNewRating(0);
-            setNewMedia([]);
         }).catch(serverError => {
             const permissionError = new FirestorePermissionError({
                 path: reviewsCollection.path,
@@ -256,6 +244,9 @@ export default function Home() {
     setNewMarkerCoords(null);
   };
   
+  const [newReviewText, setNewReviewText] = useState('');
+  const [newRating, setNewRating] = useState(0);
+  const [newMedia, setNewMedia] = useState<{type: 'image' | 'video', url: string}[]>([]);
 
   const allReviewsForMarker = reviews?.filter(r => r.markerId === selectedMarkerId) || [];
 
