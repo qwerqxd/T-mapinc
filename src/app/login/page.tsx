@@ -22,10 +22,10 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    const success = await login(email, password);
+    const result = await login(email, password);
     setIsLoading(false);
 
-    if (success) {
+    if (result.success) {
       toast({
         title: 'Вход выполнен успешно',
         description: 'С возвращением!',
@@ -34,7 +34,7 @@ export default function LoginPage() {
     } else {
       toast({
         title: 'Ошибка входа',
-        description: 'Неверный email или пароль. Пожалуйста, попробуйте еще раз.',
+        description: result.error || 'Неверный email или пароль. Пожалуйста, попробуйте еще раз.',
         variant: 'destructive',
       });
     }
