@@ -2,14 +2,13 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import * as admin from 'firebase-admin';
+import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 
-// Initialize Firebase Admin SDK if not already initialized
-if (!admin.apps.length) {
-  admin.initializeApp();
-}
-
-const db = admin.firestore();
+// We get the client-side firestore instance
+// Note: This flow runs on the server, but it uses client-style access
+// to interact with Firestore through the web SDKs, not the Admin SDK.
+const { firestore } = initializeFirebase();
 
 const UpdateUserRoleInputSchema = z.object({
   editorId: z.string().describe('The UID of the user performing the role change.'),
@@ -41,14 +40,18 @@ const updateUserRoleFlow = ai.defineFlow(
 
     try {
       // Security Check: Verify that the user performing the edit is an admin.
-      const editorDoc = await db.collection('users').doc(editorId).get();
-      if (!editorDoc.exists || editorDoc.data()?.role !== 'admin') {
+      // This check is now performed using client SDK rules.
+      // The actual security is enforced by Firestore Security Rules.
+      const editorDocRef = doc(firestore, 'users', editorId);
+      const editorDoc = await getDoc(editorDocRef);
+      
+      if (!editorDoc.exists() || editorDoc.data()?.role !== 'admin') {
         throw new Error('Permission denied: Only administrators can change user roles.');
       }
 
       // Perform the update
-      const targetUserRef = db.collection('users').doc(targetUserId);
-      await targetUserRef.update({ role: newRole });
+      const targetUserRef = doc(firestore, 'users', targetUserId);
+      await updateDoc(targetUserRef, { role: newRole });
 
       return {
         success: true,
@@ -57,6 +60,7 @@ const updateUserRoleFlow = ai.defineFlow(
     } catch (error: any) {
       console.error('Error in updateUserRoleFlow:', error);
       // Re-throw the error to be caught by the client-side caller
+      // The actual permission error will be caught and displayed on the client.
       throw new Error(error.message || 'An unexpected error occurred while updating user role.');
     }
   }
