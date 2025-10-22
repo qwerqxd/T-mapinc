@@ -1,21 +1,19 @@
-import type { Metadata } from 'next';
+'use client';
+
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AuthProvider } from '@/contexts/auth-context';
 import { Toaster } from '@/components/ui/toaster';
 import { Inter } from 'next/font/google';
 import { cn } from '@/lib/utils';
-import Head from 'next/head';
 import PreAlphaWarning from '@/components/pre-alpha-warning';
 import CookieConsentBanner from '@/components/cookie-consent-banner';
 import { YMaps } from '@pbe/react-yandex-maps';
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] });
 
-export const metadata: Metadata = {
-  title: 'T-mapinc',
-  description: 'Интерактивная карта с отзывами пользователей',
-};
+// Metadata object cannot be exported from a client component.
+// We can either move it to a parent layout or remove it if not strictly necessary.
 
 export default function RootLayout({
   children,
@@ -24,11 +22,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-       <Head>
+      <head>
+        <title>T-mapinc</title>
+        <meta name="description" content="Интерактивная карта с отзывами пользователей" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
-      </Head>
+      </head>
       <body className={cn('antialiased font-body', inter.className)}>
         <YMaps query={{ apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY }}>
           <FirebaseClientProvider>
