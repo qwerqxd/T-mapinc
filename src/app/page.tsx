@@ -47,7 +47,6 @@ export default function Home() {
     center: [55.751244, 37.618423],
     zoom: 10,
   });
-  const [mapType, setMapType] = useState<'yandex#map' | 'yandex#satellite' | 'yandex#hybrid'>('yandex#map');
 
 
   const { user } = useAuth();
@@ -190,14 +189,13 @@ export default function Home() {
     const markersCollection = collection(firestore, 'markers');
     const newMarkerRef = doc(markersCollection);
     
-    const newMarker: MarkerData = {
-      id: newMarkerRef.id,
+    const newMarker: Omit<MarkerData, 'id'> = {
       createdBy: user.uid,
       lat: newMarkerCoords.lat,
       lng: newMarkerCoords.lng,
-      country: '', // This will be populated by a geocoder later
-      city: '',    // This will be populated by a geocoder later
     };
+    
+    const markerWithId: MarkerData = { ...newMarker, id: newMarkerRef.id };
     
     setDoc(newMarkerRef, newMarker).then(() => {
         const reviewsCollection = collection(firestore, 'reviews');
@@ -206,12 +204,12 @@ export default function Home() {
           authorId: user.uid,
           authorName: user.name || 'Анонимный пользователь',
           authorAvatarUrl: user.avatarUrl || null,
-          markerId: newMarker.id,
+          markerId: markerWithId.id,
           createdAt: serverTimestamp(),
         };
         addDoc(reviewsCollection, newReview).then(() => {
             setNewMarkerCoords(null);
-            setSelectedMarkerId(newMarker.id);
+            setSelectedMarkerId(markerWithId.id);
             toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
         }).catch(serverError => {
             const permissionError = new FirestorePermissionError({
@@ -232,9 +230,6 @@ export default function Home() {
     });
   };
   
-  const handleMapTypeChange = (newType: 'yandex#map' | 'yandex#satellite' | 'yandex#hybrid') => {
-    setMapType(newType);
-  };
 
   const selectedMarker = markers?.find((m) => m.id === selectedMarkerId);
 
@@ -266,8 +261,6 @@ export default function Home() {
               markers={markers || []}
               onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
               onMapClick={handleMapClick}
-              mapType={mapType}
-              onMapTypeChange={handleMapTypeChange}
             />
           </div>
         </main>
