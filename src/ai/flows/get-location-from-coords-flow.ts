@@ -2,7 +2,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { Client } from "@googlemaps/google-maps-services-js";
+import { Client, AddressType } from "@googlemaps/google-maps-services-js";
 
 const GetLocationFromCoordsInputSchema = z.object({
   lat: z.number().describe('The latitude of the location.'),
@@ -33,7 +33,7 @@ const getLocationFromCoordsFlow = ai.defineFlow(
         params: {
           latlng: { lat: input.lat, lng: input.lng },
           key: process.env.GOOGLE_MAPS_API_KEY,
-          result_type: ["political", "locality", "sublocality", "neighborhood", "street_address", "premise"].join('|'),
+          result_type: [AddressType.political, AddressType.locality, AddressType.sublocality, AddressType.neighborhood, AddressType.street_address, AddressType.premise],
           language: 'ru'
         },
       });
