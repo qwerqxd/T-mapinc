@@ -83,11 +83,7 @@ export default function Home() {
 
 
   return (
-      <div className="grid grid-cols-1 md:grid-cols-[384px_1fr] h-[calc(100vh-4rem)]">
-        <div className="hidden md:flex md:flex-col">
-           <ReviewsSidebar reviews={reviews} markers={markers} onReviewSelect={handleMarkerClick} />
-        </div>
-        
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_384px] h-[calc(100vh-4rem)]">
         <div className="relative">
             <MapView
               mapState={mapState}
@@ -97,7 +93,10 @@ export default function Home() {
               selectedMarkerId={selectedMarkerId}
             />
         </div>
-
+        <div className="hidden md:flex md:flex-col">
+           <ReviewsSidebar reviews={reviews} markers={markers} onReviewSelect={handleMarkerClick} />
+        </div>
+        
         {selectedMarker && (
           <MarkerDetails
             marker={selectedMarker}
