@@ -1,11 +1,7 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-<<<<<<< HEAD
   output: 'standalone',
-=======
-  /* config options here */
->>>>>>> dd6cf03 (Initialized workspace with Firebase Studio)
   typescript: {
     ignoreBuildErrors: true,
   },

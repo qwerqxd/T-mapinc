@@ -8,7 +8,6 @@ export default {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-<<<<<<< HEAD
     container: {
       center: true,
       padding: "2rem",
@@ -20,12 +19,6 @@ export default {
       fontFamily: {
         body: ['PT Sans', 'sans-serif'],
         headline: ['Space Grotesk', 'sans-serif'],
-=======
-    extend: {
-      fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
->>>>>>> dd6cf03 (Initialized workspace with Firebase Studio)
         code: ['monospace'],
       },
       colors: {
