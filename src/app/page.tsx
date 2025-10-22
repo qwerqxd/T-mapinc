@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { MarkerData, Review } from '@/lib/types';
 import AppHeader from '@/components/app-header';
 import ReviewsSidebar from '@/components/reviews-sidebar';
-import MapView from '@/components/map-view';
+import dynamic from 'next/dynamic';
 import MarkerReviewDialog from '@/components/marker-review-dialog';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,12 @@ import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, updateDoc 
 import { useFirestore } from '@/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const MapView = dynamic(() => import('@/components/map-view'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full" />,
+});
 
 
 // Helper function to calculate distance between two coordinates in meters
@@ -230,7 +236,6 @@ export default function Home() {
     });
   };
   
-
   const selectedMarker = markers?.find((m) => m.id === selectedMarkerId);
 
   const closeDialogs = () => {
