@@ -77,7 +77,8 @@ export default function ReviewsSidebar({
       const marker = markersById.get(review.markerId);
       const searchText = searchTerm.toLowerCase();
       const inMarker = marker && (marker.city?.toLowerCase().includes(searchText) || marker.country?.toLowerCase().includes(searchText));
-      const inReview = review.text.toLowerCase().includes(searchText) || review.authorName.toLowerCase().includes(searchText);
+      const inReview = (review.text && review.text.toLowerCase().includes(searchText)) || 
+                     (review.authorName && review.authorName.toLowerCase().includes(searchText));
       return inMarker || inReview;
     });
 
