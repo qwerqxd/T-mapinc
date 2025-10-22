@@ -13,17 +13,9 @@ import {
 import { AlertTriangle } from 'lucide-react';
 
 export default function PreAlphaWarning() {
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    const hasSeenWarning = localStorage.getItem('hasSeenPreAlphaWarning_v2');
-    if (!hasSeenWarning) {
-      setIsOpen(true);
-    }
-  }, []);
+  const [isOpen, setIsOpen] = useState(true);
 
   const handleAcknowledge = () => {
-    localStorage.setItem('hasSeenPreAlphaWarning_v2', 'true');
     setIsOpen(false);
   };
 
