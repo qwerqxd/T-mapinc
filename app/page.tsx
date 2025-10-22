@@ -5,11 +5,10 @@ import { useState, useMemo, useCallback } from 'react';
 import MapView from '@/components/map-view';
 import MarkerDetails from '@/components/marker-details';
 import MarkerForm from '@/components/marker-form';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useMarkers } from '@/hooks/use-markers';
 import type { MarkerData } from '@/lib/types';
-import { Search, Plus } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function Home() {
@@ -26,7 +25,7 @@ export default function Home() {
     zoom: 10
   });
 
-  const { markers, reviews, loading, error, addMarkerWithReview, addReview, updateReview, deleteReview } = useMarkers();
+  const { markers, reviews, addMarkerWithReview, addReview, updateReview, deleteReview } = useMarkers();
 
   const filteredMarkers = useMemo(() => {
     if (!markers) return [];
@@ -75,21 +74,6 @@ export default function Home() {
     setSelectedMarkerId(null);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Загрузка карты...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg text-red-600">Ошибка: {error.message}</div>
-      </div>
-    );
-  }
 
   return (
       <div className="flex h-screen bg-background">

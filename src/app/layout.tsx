@@ -1,3 +1,5 @@
+'use client';
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
@@ -9,13 +11,18 @@ import Head from 'next/head';
 import PreAlphaWarning from '@/components/pre-alpha-warning';
 import CookieConsentBanner from '@/components/cookie-consent-banner';
 import { YMaps } from '@pbe/react-yandex-maps';
+import AppHeader from '@/components/app-header';
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] });
 
-export const metadata: Metadata = {
-  title: 'T-mapinc',
-  description: 'Интерактивная карта с отзывами пользователей',
-};
+// Metadata object cannot be exported from a client component.
+// We can either move it to a parent layout or remove it if not strictly necessary.
+// For now, I will comment it out to resolve the build error, 
+// but it should ideally be handled in a parent server component.
+// export const metadata: Metadata = {
+//   title: 'T-mapinc',
+//   description: 'Интерактивная карта с отзывами пользователей',
+// };
 
 export default function RootLayout({
   children,
@@ -24,16 +31,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-       <Head>
+      <head>
+        <title>T-mapinc</title>
+        <meta name="description" content="Интерактивная карта с отзывами пользователей" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
-      </Head>
+      </head>
       <body className={cn('antialiased font-body', inter.className)}>
         <YMaps query={{ apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY }}>
           <FirebaseClientProvider>
             <AuthProvider>
               <div className="flex flex-col min-h-screen">
+                <AppHeader />
                 <main className="flex-grow">{children}</main>
                 <footer className="bg-card border-t p-4 text-center text-sm text-muted-foreground">
                   <p>© {new Date().getFullYear()} T-mapinc. Все права защищены.</p>
