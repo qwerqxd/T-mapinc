@@ -83,6 +83,12 @@ export default function MarkerForm({
       const fileType = file.type.startsWith('image') ? 'image' : 'video';
       const objectURL = URL.createObjectURL(file);
       
+      const newMediaItem: ReviewMedia = {
+        type: fileType,
+        url: objectURL,
+        file: file
+      };
+
       if (fileType === 'video') {
         const video = document.createElement('video');
         video.preload = 'metadata';
@@ -95,18 +101,18 @@ export default function MarkerForm({
               variant: 'destructive',
             });
           } else {
-            setMedia((prev: ReviewMedia[]) => [...prev, { type: 'video', url: objectURL, file: file }]);
+            setMedia((prev) => [...prev, newMediaItem]);
           }
         };
         video.src = objectURL;
       } else {
-        setMedia((prev: ReviewMedia[]) => [...prev, { type: 'image', url: objectURL, file: file }]);
+        setMedia((prev) => [...prev, newMediaItem]);
       }
     });
   };
 
   const removeMedia = (url: string) => {
-    setMedia((prev: ReviewMedia[]) => prev.filter(item => item.url !== url));
+    setMedia(prev => prev.filter(item => item.url !== url));
   };
 
 

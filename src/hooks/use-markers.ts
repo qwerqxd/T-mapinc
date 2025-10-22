@@ -26,7 +26,7 @@ async function processMedia(userId: string, markerId: string, mediaItems: Review
                 storagePath: storagePath,
             };
         }
-        // If there's no file, it's an existing media item. Just return its data.
+        // If there's no file, it's an existing media item. Just return its data without the file property.
         const { file, ...rest } = item;
         return rest;
     });
@@ -117,7 +117,7 @@ export function useMarkers() {
         
         const processedMedia = await processMedia(user.uid, reviewToUpdate.markerId, updatedData.media || []);
 
-        const dataToUpdate: any = {
+        const dataToUpdate = {
             text: updatedData.text,
             rating: updatedData.rating,
             media: processedMedia,

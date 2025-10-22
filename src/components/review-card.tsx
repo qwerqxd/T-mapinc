@@ -76,20 +76,20 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
             <p className="text-sm text-foreground/90">{review.text}</p>
             
             {review.media && review.media.length > 0 && (
-              <div className="pt-2">
-                <Carousel className="w-full max-w-xs mx-auto">
+               <div className="pt-2 max-w-[250px]">
+                <Carousel className="w-full">
                   <CarouselContent>
                     {review.media.map((media, index) => (
                       <CarouselItem key={index}>
                         <div className="p-1">
                            <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
                             {media.type === 'image' ? (
-                                <img src={media.url} alt={`Review media ${index + 1}`} className="w-full h-full object-contain" />
+                                <img src={media.url} alt={`Review media ${index + 1}`} className="w-full h-full object-cover" />
                             ) : (
-                                <video src={media.url} controls className="w-full h-full object-contain" />
+                                <video src={media.url} controls className="w-full h-full object-cover" />
                             )}
-                             <div className="absolute bottom-2 left-2 bg-black/50 text-white p-1 rounded-full">
-                                {media.type === 'image' ? <FileImage className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+                             <div className="absolute bottom-2 left-2 bg-black/50 text-white p-1 rounded-full text-xs flex items-center">
+                                {media.type === 'image' ? <FileImage className="h-3 w-3 mr-1" /> : <Video className="h-3 w-3 mr-1" />}
                               </div>
                            </div>
                         </div>
@@ -98,8 +98,8 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
                   </CarouselContent>
                   {review.media.length > 1 && (
                     <>
-                      <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2" />
-                      <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2" />
+                      <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2" />
+                      <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2" />
                     </>
                   )}
                 </Carousel>

@@ -61,7 +61,7 @@ export default function MarkerDetails({
 
   const handleEditSubmit = (reviewData: { text: string; rating: number; media: ReviewMedia[] }) => {
     if (editingReview) {
-      onUpdateReview(editingReview, { ...reviewData, media: reviewData.media || [] });
+      onUpdateReview(editingReview, reviewData);
       setEditingReview(null);
     }
   };
