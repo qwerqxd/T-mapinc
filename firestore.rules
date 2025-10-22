@@ -2,92 +2,114 @@
  * @fileoverview Firestore Security Rules for the application.
  *
  * Core Philosophy:
- * This ruleset enforces a user-ownership model for user profiles and reviews. Users can only
- * read and write their own profile data. Reviews can be created, updated, and deleted only by
- * the author. Markers are publicly readable, but creation is restricted to authenticated users,
- * and updates/deletions are not permitted.
+ * This ruleset enforces a user-ownership model for user profiles.
+ * Markers are publicly readable but owner-writable. Reviews are publicly readable but owner-writable.
+ * Only authenticated users can create, update, or delete content.
+ * Admins have full access.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile data, with userId matching the Firebase auth UID.
- * - /markers/{markerId}: Stores marker data.
- * - /reviews/{reviewId}: Stores review data, with authorId indicating the review's author.
+ * - /users/{userId}: Stores user profiles, accessible only by the user themselves or an admin.
+ * - /markers/{markerId}: Stores map markers, publicly readable, but only the creator can modify or delete.
+ * - /reviews/{reviewId}: Stores reviews, publicly readable, but only the author can modify or delete.
  *
  * Key Security Decisions:
- * - Users can only manage their own profiles. Listing all users is disallowed.
- * - Markers are publicly readable but cannot be updated or deleted. Only creation is allowed by authenticated users.
- * - Reviews are owned by their authors and can only be modified or deleted by them.
- * - No global admin roles are defined in this prototype.
+ * - User listing is disallowed.
+ * - Public read access is granted to markers and reviews.
  *
  * Denormalization for Authorization:
- * - Reviews contain an `authorId` field, enabling easy validation of ownership.
- *
- * Structural Segregation:
- * - No segregation is needed as there is no public vs. private data in the model
+ * - Markers and Reviews have a `createdBy` or `authorId` field respectively, to determine ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secures user profile data. Only the authenticated user can read or write their own profile.
+     * @description Protects user profiles.
      * @path /users/{userId}
-     * @allow (create) User with UID 'user_abc' can create their profile with matching ID.
-     * @allow (get, update, delete) User with UID 'user_abc' can read, update, or delete their own profile.
-     * @deny (create) User with UID 'user_abc' cannot create a profile with a mismatched ID 'user_xyz'.
-     * @deny (get, update, delete) User with UID 'user_xyz' cannot read, update, or delete user 'user_abc' profile.
-     * @deny (list) Listing all users is not allowed.
-     * @principle Enforces user-ownership for profile data.
+     * @allow (create) - If the user's UID matches the requested userId.
+     * @allow (get, update, delete) - If the user is the owner of the profile or is an admin.
+     * @deny (create) - If the user's UID does not match the requested userId.
+     * @deny (get, update, delete) - If the user is not the owner of the profile and not an admin.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
+      }
+
+      allow get: if isOwner(userId) || isAdmin();
       allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     /**
-     * @description Secures map markers. Markers are publicly readable, but creation is restricted to authenticated users. Updates and deletions are not allowed.
+     * @description Protects map markers.
      * @path /markers/{markerId}
-     * @allow (get, list) Any user can read the marker data.
-     * @allow (create) Any authenticated user can create a marker.
-     * @deny (update, delete) No one can update or delete a marker.
-     * @principle Allows public reads but restricts writes to authenticated users. Enforces immutability of markers after creation.
+     * @allow (get, list) - Anyone can read markers.
+     * @allow (create) - Only authenticated users can create markers and must set createdBy to their UID.
+     * @allow (update, delete) - Only the creator can update or delete markers.
+     * @deny (create) - If the marker doesn't contain createdBy or the value does not match the user's UID.
+     * @deny (update, delete) - If the user is not the owner of the marker.
+     * @principle Enforces document ownership for writes while allowing public reads.
      */
     match /markers/{markerId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner() {
+          return resource.data.createdBy == request.auth.uid;
+      }
+
+      function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
+      }
+
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn() && isOwner() || isAdmin();
+      allow delete: if isSignedIn() && isOwner() || isAdmin();
     }
 
     /**
-     * @description Secures reviews. Reviews are readable, and can only be created, updated, and deleted by their author.
+     * @description Protects reviews.
      * @path /reviews/{reviewId}
-     * @allow (get, list) Any user can read reviews.
-     * @allow (create) User with UID 'user_abc' can create a review with authorId 'user_abc'.
-     * @allow (update, delete) User with UID 'user_abc' can update or delete a review they authored.
-     * @deny (create) User with UID 'user_xyz' cannot create a review with authorId 'user_abc'.
-     * @deny (update, delete) User with UID 'user_xyz' cannot update or delete a review authored by 'user_abc'.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list) - Anyone can read reviews.
+     * @allow (create) - Only authenticated users can create reviews and must set authorId to their UID.
+     * @allow (update, delete) - Only the author can update or delete reviews.
+     * @deny (create) - If the review doesn't contain authorId or the value does not match the user's UID.
+     * @deny (update, delete) - If the user is not the author of the review.
+     * @principle Enforces document ownership for writes while allowing public reads.
      */
     match /reviews/{reviewId} {
-      allow get, list: if true;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner() {
+          return resource.data.authorId == request.auth.uid;
+      }
+
+      function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
+      }
+
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.authorId);
-      allow delete: if isExistingOwner(resource.data.authorId);
-    }
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+      allow update: if isSignedIn() && isOwner() || isAdmin();
+      allow delete: if isSignedIn() && isOwner() || isAdmin();
     }
   }
 }
