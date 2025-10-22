@@ -35,28 +35,6 @@ export default function ReviewsSidebar({
 }: ReviewsSidebarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('most recent');
-  const [selectedCountry, setSelectedCountry] = useState('all');
-  const [selectedCity, setSelectedCity] = useState('all');
-  
-  const markersById = useMemo(() => new Map(markers.map(marker => [marker.id, marker])), [markers]);
-
-  const countries = useMemo(() => {
-    const countrySet = new Set(markers.map((m) => m.country).filter(Boolean));
-    return ['all', ...Array.from(countrySet).sort()];
-  }, [markers]);
-
-  const cities = useMemo(() => {
-    const citySet = new Set(
-      markers
-        .filter(
-          (m) =>
-            selectedCountry === 'all' || m.country === selectedCountry
-        )
-        .map((m) => m.city)
-        .filter(Boolean)
-    );
-    return ['all', ...Array.from(citySet).sort()];
-  }, [markers, selectedCountry]);
 
   const getReviewTimestamp = (createdAt: Review['createdAt']): number => {
     if (createdAt instanceof Timestamp) {
@@ -74,34 +52,16 @@ export default function ReviewsSidebar({
 
   const filteredReviews = useMemo(() => {
     let filtered = reviews.filter((review) => {
-      if (!review) return false;
-      const marker = markersById.get(review.markerId);
-      const searchText = searchTerm.toLowerCase();
-
-      const inMarker = marker && 
-        ((marker.city && marker.city.toLowerCase().includes(searchText)) || 
-         (marker.country && marker.country.toLowerCase().includes(searchText)));
-
-      const inReview = 
-        (review.text && review.text.toLowerCase().includes(searchText)) || 
-        (review.authorName && review.authorName.toLowerCase().includes(searchText));
-
-      return inMarker || inReview;
-    });
-
-    if (selectedCountry !== 'all') {
-      filtered = filtered.filter(review => {
-        const marker = markersById.get(review.markerId);
-        return marker?.country === selectedCountry;
-      });
-    }
-
-    if (selectedCity !== 'all') {
-      filtered = filtered.filter(review => {
-        const marker = markersById.get(review.markerId);
-        return marker?.city === selectedCity;
-      });
-    }
+        if (!review) return false;
+        const searchText = searchTerm.toLowerCase();
+        
+        const inReview = 
+          (review.text && review.text.toLowerCase().includes(searchText)) || 
+          (review.authorName && review.authorName.toLowerCase().includes(searchText));
+  
+        return inReview;
+      }
+    );
 
     return filtered.sort((a, b) => {
       switch (sortOption) {
@@ -114,13 +74,7 @@ export default function ReviewsSidebar({
           return getReviewTimestamp(b.createdAt) - getReviewTimestamp(a.createdAt);
       }
     });
-  }, [reviews, markersById, searchTerm, sortOption, selectedCountry, selectedCity]);
-  
-  // Reset city filter when country changes
-  const handleCountryChange = (country: string) => {
-    setSelectedCountry(country);
-    setSelectedCity('all');
-  }
+  }, [reviews, searchTerm, sortOption]);
 
   return (
     <aside className="flex h-full flex-col border-r bg-card">
@@ -129,29 +83,11 @@ export default function ReviewsSidebar({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Поиск по тексту, автору, месту..."
+            placeholder="Поиск отзывов..."
             className="pl-10"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-            <Select value={selectedCountry} onValueChange={handleCountryChange}>
-                <SelectTrigger><SelectValue placeholder="Страна" /></SelectTrigger>
-                <SelectContent>
-                    {countries.map(country => (
-                        <SelectItem key={country} value={country}>{country === 'all' ? 'Все страны' : country}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            <Select value={selectedCity} onValueChange={setSelectedCity} disabled={selectedCountry === 'all' && cities.length <= 1}>
-                <SelectTrigger><SelectValue placeholder="Город" /></SelectTrigger>
-                <SelectContent>
-                    {cities.map(city => (
-                        <SelectItem key={city} value={city}>{city === 'all' ? 'Все города' : city}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
         </div>
         <div className="flex items-center gap-2">
           <Select value={sortOption} onValueChange={setSortOption}>
@@ -181,7 +117,7 @@ export default function ReviewsSidebar({
                 onClick={() => onReviewSelect(review.markerId)}
                 className="cursor-pointer"
               >
-                <ReviewCard review={review} marker={markersById.get(review.markerId)} />
+                <ReviewCard review={review} />
               </div>
             ))
           ) : (

@@ -43,8 +43,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (userDocSnap.exists()) {
         setUser(userDocSnap.data() as User);
       } else {
+        // This can happen if user is created in Auth but not in Firestore yet
+        // Let's not set user to null here, maybe the creation is in progress
         console.log(`User document for ${fbUser.uid} not found. This may be expected during registration.`);
-        setUser(null);
       }
     } catch (error) {
       const permissionError = new FirestorePermissionError({
@@ -77,7 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle the rest
+      // onAuthStateChanged will handle the rest, including setting loading to false
       return { success: true };
     } catch (error: any) {
       console.error('Login error:', error.message);
@@ -118,11 +119,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       const photoURL = `https://picsum.photos/seed/${newUser.uid}/100/100`;
       
+      // We update the auth profile first
       await updateProfile(newUser, { 
         displayName: name,
         photoURL: photoURL
       });
 
+      // Then create the user document in Firestore
       const userDocRef = doc(firestore, 'users', newUser.uid);
       const userData: User = {
           uid: newUser.uid,
@@ -135,14 +138,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       await setDoc(userDocRef, userData);
       
-      // onAuthStateChanged will be triggered automatically and will handle loading state
+      // onAuthStateChanged will be triggered automatically and will handle loading the new user data.
+      // We don't need to manually set the user or loading state here.
       return { success: true };
 
     } catch (error: any) {
        let errorMessage = 'Произошла неизвестная ошибка.';
-       // Check if it's a Firestore error
        if (error.name === 'FirestoreError' || error.code?.startsWith('permission-denied')) {
-         const userDocRef = doc(firestore, error.uid || 'unknown-uid');
+         const userDocRef = doc(firestore, 'unknown-uid');
          const permissionError = new FirestorePermissionError({
            path: userDocRef.path,
            operation: 'create',
@@ -150,7 +153,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
          errorEmitter.emit('permission-error', permissionError);
          errorMessage = 'Ошибка сохранения данных пользователя.';
        } else {
-         // Handle auth-specific errors
          console.error("Registration auth error:", error.message);
          switch (error.code) {
             case 'auth/email-already-in-use':

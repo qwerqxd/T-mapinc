@@ -8,8 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { StarRating } from '@/components/star-rating';
 import { useAuth } from '@/contexts/auth-context';
-import type { MarkerData, Review } from '@/lib/types';
-import { MapPin, Pencil, Trash2 } from 'lucide-react';
+import type { Review } from '@/lib/types';
+import { Pencil, Trash2 } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -28,13 +28,12 @@ import { FileImage, Video } from 'lucide-react';
 
 interface ReviewCardProps {
   review: Review;
-  marker?: MarkerData;
   className?: string;
   onEdit?: () => void;
   onDelete?: () => void;
 }
 
-export default function ReviewCard({ review, marker, className, onEdit, onDelete }: ReviewCardProps) {
+export default function ReviewCard({ review, className, onEdit, onDelete }: ReviewCardProps) {
   const { user: currentUser } = useAuth();
   
   const getReviewDate = (date: any) => {
@@ -55,7 +54,6 @@ export default function ReviewCard({ review, marker, className, onEdit, onDelete
   }
 
   const canModify = currentUser?.uid === review.authorId || currentUser?.role === 'admin';
-  const location = [marker?.city, marker?.country].filter(Boolean).join(', ');
 
   return (
     <Card className={`overflow-hidden transition-all hover:shadow-md ${className}`}>
@@ -69,18 +67,9 @@ export default function ReviewCard({ review, marker, className, onEdit, onDelete
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-semibold">{review.authorName}</p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                   <p>{getReviewDate(review.createdAt)}</p>
-                   {location && (
-                    <>
-                    <span>•</span>
-                    <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        <span>{location}</span>
-                    </div>
-                    </>
-                   )}
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  {getReviewDate(review.createdAt)}
+                </p>
               </div>
               <StarRating rating={review.rating} />
             </div>

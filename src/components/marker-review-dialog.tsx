@@ -160,7 +160,7 @@ export default function MarkerReviewDialog({
     if (editingReview) {
       onReviewUpdate(editingReview, reviewData);
       setEditingReview(null);
-    } else if (isCreatingNewMarker && coords) {
+    } else if (isCreatingNewMarker) {
         onMarkerCreate(reviewData);
     } else if (marker) {
         onReviewSubmit({
@@ -178,13 +178,12 @@ export default function MarkerReviewDialog({
   };
 
   const getMarkerTitle = () => {
-    if (isCreatingNewMarker) return "Новая метка";
-    if (marker) {
-        const title = [marker.city, marker.country].filter(Boolean).join(', ');
-        return title || 'Отзывы о месте';
+    if (isCreatingNewMarker) return "Новый отзыв";
+    if (reviews.length > 0) {
+        return `Отзывы о месте`;
     }
-    return 'Отзывы о месте';
-}
+    return 'Отзывы об этом месте';
+  }
 
   const getMarkerDescription = () => {
      if (isCreatingNewMarker) return "Оставьте первый отзыв об этом месте.";
@@ -209,13 +208,11 @@ export default function MarkerReviewDialog({
         <ScrollArea className="flex-1 pr-4 -mr-4">
           <div className="space-y-4 py-4">
             {reviews.length > 0 ? (
-              reviews.map((review) => <ReviewCard key={review.id} review={review} marker={marker} onEdit={() => setEditingReview(review)} onDelete={() => setDeletingReview(review)} />)
+              reviews.map((review) => <ReviewCard key={review.id} review={review} onEdit={() => setEditingReview(review)} onDelete={() => setDeletingReview(review)} />)
             ) : (
-              !isCreatingNewMarker && (
-                <div className="text-sm text-muted-foreground text-center py-8">
-                  <p>Нет отзывов. Будьте первым, кто оставит один!</p>
-                </div>
-              )
+              <div className="text-sm text-muted-foreground text-center py-8">
+                <p>Нет отзывов. Будьте первым, кто оставит один!</p>
+              </div>
             )}
           </div>
         </ScrollArea>

@@ -31,7 +31,5 @@ export type MarkerData = {
   id: string;
   lat: number;
   lng: number;
-  country?: string;
-  city?: string;
   createdBy: string; // user ID
 };

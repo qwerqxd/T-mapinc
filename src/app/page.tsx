@@ -1,8 +1,8 @@
 
 'use client';
 
-import { YMaps, useYMaps } from '@pbe/react-yandex-maps';
-import { useState, useEffect, useCallback } from 'react';
+import { YMaps } from '@pbe/react-yandex-maps';
+import { useState } from 'react';
 import type { MarkerData, Review } from '@/lib/types';
 import AppHeader from '@/components/app-header';
 import ReviewsSidebar from '@/components/reviews-sidebar';
@@ -33,9 +33,8 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c; // in metres
 }
 
-function InnerHome() {
+export default function Home() {
   const firestore = useFirestore();
-  const ymaps = useYMaps(['geocode']);
   const { data: markers, loading: markersLoading } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') : null);
   const { data: reviews, loading: reviewsLoading } = useCollection<Review>(firestore ? collection(firestore, 'reviews') : null);
   
@@ -185,36 +184,16 @@ function InnerHome() {
   };
 
 
-  const getGeoData = useCallback(async (lat: number, lng: number): Promise<{country: string, city: string}> => {
-    if (!ymaps) return { country: '', city: '' };
-    try {
-      const res = await ymaps.geocode([lat, lng], { kind: 'locality', results: 1 });
-      const firstGeoObject = res.geoObjects.get(0);
-      
-      const country = firstGeoObject.getCountry() || '';
-      const city = firstGeoObject.getLocalities().length > 0 ? firstGeoObject.getLocalities()[0] : '';
-      
-      return { country, city };
-    } catch (error) {
-      console.error("Geocoding error:", error);
-      return { country: '', city: '' };
-    }
-  }, [ymaps]);
-  
-  const handleAddMarkerWithReview = async (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleAddMarkerWithReview = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
     if (!user || !newMarkerCoords || !firestore) return;
     
-    const { country, city } = await getGeoData(newMarkerCoords.lat, newMarkerCoords.lng);
-
     const markersCollection = collection(firestore, 'markers');
     const newMarkerRef = doc(markersCollection);
-    const newMarker: MarkerData = {
+    const newMarker: Omit<MarkerData, 'id'> & {id: string} = {
       id: newMarkerRef.id,
       createdBy: user.uid,
       lat: newMarkerCoords.lat,
       lng: newMarkerCoords.lng,
-      country,
-      city
     };
     
     setDoc(newMarkerRef, newMarker).then(() => {
@@ -265,6 +244,12 @@ function InnerHome() {
   const allReviewsForMarker = reviews?.filter(r => r.markerId === selectedMarkerId) || [];
 
   return (
+    <YMaps
+      query={{
+        apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY,
+        lang: 'ru_RU',
+      }}
+    >
       <div className="flex h-dvh w-full flex-col font-body">
         <AppHeader />
         <main className="grid flex-1 grid-cols-1 md:grid-cols-[380px_1fr] lg:grid-cols-[420px_1fr] xl:grid-cols-[480px_1fr] overflow-hidden">
@@ -297,18 +282,6 @@ function InnerHome() {
           setNewMedia={setNewMedia}
         />
       </div>
-  );
-}
-
-export default function Home() {
-  return (
-     <YMaps
-      query={{
-        apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY,
-        lang: 'ru_RU',
-      }}
-    >
-      <InnerHome />
     </YMaps>
-  )
+  );
 }
