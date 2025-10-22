@@ -12,7 +12,9 @@ import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
 import { uploadFile, deleteFile } from '@/firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 
+
 async function processMedia(userId: string, markerId: string, mediaItems: ReviewMedia[]): Promise<ReviewMedia[]> {
+    if (!mediaItems) return [];
     const uploadPromises = mediaItems.map(async (item) => {
         if (item.file && !item.storagePath) {
             const storagePath = `reviews/${userId}/${markerId}/${uuidv4()}-${item.file.name}`;
@@ -23,7 +25,7 @@ async function processMedia(userId: string, markerId: string, mediaItems: Review
                 storagePath: storagePath,
             };
         }
-        return item; // already uploaded
+        return item; // already uploaded or no file attached
     });
     return Promise.all(uploadPromises);
 }
@@ -120,7 +122,7 @@ export function useMarkers() {
         };
 
         const oldMedia = reviewToUpdate.media || [];
-        const newMediaPaths = new Set(processedMedia.map(m => m.storagePath));
+        const newMediaPaths = new Set(processedMedia.map(m => m.storagePath).filter(Boolean));
         const mediaToDelete = oldMedia.filter(m => m.storagePath && !newMediaPaths.has(m.storagePath));
         
         await Promise.all(mediaToDelete.map(m => m.storagePath && deleteFile(m.storagePath)));
