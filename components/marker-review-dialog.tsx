@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useTransition } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -30,7 +31,7 @@ import { useAuth } from '@/contexts/auth-context';
 import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
 import ReviewCard from './review-card';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Paperclip, X, FileImage, Video } from 'lucide-react';
+import { PlusCircle, Paperclip, X, FileImage, Video, Loader2 } from 'lucide-react';
 
 
 interface MarkerReviewDialogProps {
@@ -40,7 +41,7 @@ interface MarkerReviewDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onReviewSubmit: (review: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => void;
-  onMarkerCreate: (marker: Omit<MarkerData, 'id'|'createdBy'>, review: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
+  onMarkerCreate: (review: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
   onReviewUpdate: (reviewToUpdate: Review, updatedData: { text: string; rating: number; media: ReviewMedia[] }) => void;
   onReviewDelete: (review: Review) => void;
   newReviewText: string;
@@ -73,6 +74,7 @@ export default function MarkerReviewDialog({
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [deletingReview, setDeletingReview] = useState<Review | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (isOpen) {
@@ -142,35 +144,34 @@ export default function MarkerReviewDialog({
 
 
   const handleSubmit = () => {
-    if (!user) {
-      toast({ title: 'Ошибка', description: 'Вы должны войти в систему, чтобы оставить отзыв.', variant: 'destructive'});
-      return;
-    }
-    if (newReviewText.trim() === '' || newRating === 0) {
-      toast({ title: 'Ошибка', description: 'Пожалуйста, поставьте оценку и напишите текст отзыва.', variant: 'destructive' });
-      return;
-    }
+     startTransition(() => {
+        if (!user) {
+          toast({ title: 'Ошибка', description: 'Вы должны войти в систему, чтобы оставить отзыв.', variant: 'destructive'});
+          return;
+        }
+        if (newReviewText.trim() === '' || newRating === 0) {
+          toast({ title: 'Ошибка', description: 'Пожалуйста, поставьте оценку и напишите текст отзыва.', variant: 'destructive' });
+          return;
+        }
 
-    const reviewData = {
-      text: newReviewText,
-      rating: newRating,
-      media: newMedia
-    };
+        const reviewData = {
+          text: newReviewText,
+          rating: newRating,
+          media: newMedia
+        };
 
-    if (editingReview) {
-      onReviewUpdate(editingReview, reviewData);
-      setEditingReview(null);
-    } else if (isCreatingNewMarker && coords) {
-        onMarkerCreate(
-          { country: '', city: '', lat: coords.lat, lng: coords.lng },
-          reviewData
-        );
-    } else if (marker) {
-        onReviewSubmit({
-            markerId: marker.id,
-            ...reviewData
-        });
-    }
+        if (editingReview) {
+          onReviewUpdate(editingReview, reviewData);
+          setEditingReview(null);
+        } else if (isCreatingNewMarker) {
+            onMarkerCreate(reviewData);
+        } else if (marker) {
+            onReviewSubmit({
+                markerId: marker.id,
+                ...reviewData
+            });
+        }
+    });
   };
 
   const handleConfirmDelete = () => {
@@ -229,10 +230,11 @@ export default function MarkerReviewDialog({
                 placeholder="Поделитесь своим опытом..."
                 value={newReviewText}
                 onChange={(e) => setNewReviewText(e.target.value)}
+                disabled={isPending}
               />
 
               <div className="space-y-2">
-                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
                   <Paperclip className="mr-2 h-4 w-4" />
                   Прикрепить медиа
                 </Button>
@@ -243,6 +245,7 @@ export default function MarkerReviewDialog({
                   accept="image/*,video/*"
                   onChange={handleFileChange}
                   className="hidden"
+                  disabled={isPending}
                 />
                 {newMedia.length > 0 && (
                   <ScrollArea className="w-full h-32">
@@ -259,6 +262,7 @@ export default function MarkerReviewDialog({
                             size="icon"
                             className="absolute top-1 right-1 h-5 w-5"
                             onClick={() => removeMedia(media.url)}
+                            disabled={isPending}
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -274,11 +278,15 @@ export default function MarkerReviewDialog({
 
                <DialogFooter>
                 {editingReview && (
-                  <Button variant="ghost" onClick={() => setEditingReview(null)}>Отмена</Button>
+                  <Button variant="ghost" onClick={() => setEditingReview(null)} disabled={isPending}>Отмена</Button>
                 )}
-                <Button onClick={handleSubmit} className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    {editingReview ? 'Сохранить изменения' : 'Отправить отзыв'}
+                <Button onClick={handleSubmit} className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90" disabled={isPending}>
+                    {isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                    )}
+                    {isPending ? 'Отправка...' : editingReview ? 'Сохранить изменения' : isCreatingNewMarker ? 'Создать метку и отзыв' : 'Отправить отзыв'}
                 </Button>
                </DialogFooter>
             </div>

@@ -47,6 +47,8 @@ export default function Home() {
     center: [55.751244, 37.618423],
     zoom: 10,
   });
+  const [mapType, setMapType] = useState<'yandex#map' | 'yandex#satellite' | 'yandex#hybrid'>('yandex#map');
+
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -120,11 +122,9 @@ export default function Home() {
     if (!user || !firestore) return;
     const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
     
-    // Only include fields that are meant to be updated.
-    // Do not include authorId or other immutable fields.
     const dataToUpdate = {
         ...updatedData,
-        updatedAt: serverTimestamp(), // Use updatedAt for edits
+        updatedAt: serverTimestamp(),
     };
 
     updateDoc(reviewRef, dataToUpdate).then(() => {
@@ -161,7 +161,6 @@ export default function Home() {
       );
 
       if (otherReviewsForMarker && otherReviewsForMarker.length === 0) {
-        // This was the last review, so delete the marker as well
         const markerRef = doc(firestore, 'markers', reviewToDelete.markerId);
         try {
           await deleteDoc(markerRef);
@@ -190,12 +189,14 @@ export default function Home() {
     
     const markersCollection = collection(firestore, 'markers');
     const newMarkerRef = doc(markersCollection);
-    const newMarker: Omit<MarkerData, 'id'> & {id: string} = {
-      id: newMarkerRef.id,
+    
+    const newMarker: Omit<MarkerData, 'id'> = {
       createdBy: user.uid,
       lat: newMarkerCoords.lat,
       lng: newMarkerCoords.lng,
     };
+    
+    const markerWithId: MarkerData = { ...newMarker, id: newMarkerRef.id };
     
     setDoc(newMarkerRef, newMarker).then(() => {
         const reviewsCollection = collection(firestore, 'reviews');
@@ -204,12 +205,12 @@ export default function Home() {
           authorId: user.uid,
           authorName: user.name || 'Анонимный пользователь',
           authorAvatarUrl: user.avatarUrl || null,
-          markerId: newMarker.id,
+          markerId: markerWithId.id,
           createdAt: serverTimestamp(),
         };
         addDoc(reviewsCollection, newReview).then(() => {
             setNewMarkerCoords(null);
-            setSelectedMarkerId(newMarker.id);
+            setSelectedMarkerId(markerWithId.id);
             toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
         }).catch(serverError => {
             const permissionError = new FirestorePermissionError({
@@ -218,7 +219,6 @@ export default function Home() {
                 requestResourceData: newReview,
             });
             errorEmitter.emit('permission-error', permissionError);
-            // If review fails, we should probably delete the marker too
             deleteDoc(newMarkerRef);
         });
     }).catch(serverError => {
@@ -229,6 +229,12 @@ export default function Home() {
         });
         errorEmitter.emit('permission-error', permissionError);
     });
+  };
+  
+  const handleMapTypeChange = (newType: 'yandex#map' | 'yandex#satellite' | 'yandex#hybrid') => {
+    if (newType) {
+        setMapType(newType);
+    }
   };
 
   const selectedMarker = markers?.find((m) => m.id === selectedMarkerId);
@@ -261,6 +267,8 @@ export default function Home() {
               markers={markers || []}
               onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
               onMapClick={handleMapClick}
+              mapType={mapType}
+              onMapTypeChange={handleMapTypeChange}
             />
           </div>
         </main>
