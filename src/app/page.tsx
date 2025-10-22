@@ -41,13 +41,17 @@ export default function Home() {
   const [isMarkerDetailsOpen, setIsMarkerDetailsOpen] = useState(false);
 
 
-  const selectedMarker = useMemo(() => 
-    selectedMarkerId ? markers.find(m => m.id === selectedMarkerId) : null,
-  [markers, selectedMarkerId]);
+  const selectedMarker = useMemo(() => {
+    if (editingReview) {
+      return markers.find(m => m.id === editingReview.markerId) || null;
+    }
+    return selectedMarkerId ? markers.find(m => m.id === selectedMarkerId) : null;
+  }, [markers, selectedMarkerId, editingReview]);
+
 
   const reviewsForSelectedMarker = useMemo(() => 
-    selectedMarkerId ? reviews.filter(r => r.markerId === selectedMarkerId) : [],
-  [reviews, selectedMarkerId]);
+    selectedMarker ? reviews.filter(r => r.markerId === selectedMarker.id) : [],
+  [reviews, selectedMarker]);
 
   const handleMapClick = useCallback((coords: { lat: number; lng: number }) => {
     if (user) {
@@ -83,6 +87,10 @@ export default function Home() {
       if (deletingReview) {
         await deleteReview(deletingReview);
         setDeletingReview(null);
+        // If the marker details dialog was open for the review being deleted, close it.
+        if (selectedMarkerId === deletingReview.markerId && reviewsForSelectedMarker.length === 1) {
+            handleCloseDetails();
+        }
       }
   }
 
@@ -91,6 +99,7 @@ export default function Home() {
     setNewMarkerCoords(null);
     setSelectedMarkerId(markerId);
     setIsMarkerDetailsOpen(true);
+    setEditingReview(null); // Ensure not in edit mode when clicking a new marker
     const marker = markers.find(m => m.id === markerId);
     if(marker) {
       setMapState(prev => ({...prev, center: [marker.lat, marker.lng]}))
@@ -105,16 +114,14 @@ export default function Home() {
   
   const handleEditReview = (review: Review) => {
     setEditingReview(review);
-    if (review.markerId !== selectedMarkerId) {
-        setSelectedMarkerId(review.markerId);
-    }
+    setSelectedMarkerId(review.markerId); // Ensure the correct marker is selected
     setIsMarkerDetailsOpen(true);
   };
 
 
   return (
-      <div className="grid grid-cols-1 md:grid-cols-[384px_1fr] h-[calc(100vh-4rem)]">
-        <div className="hidden md:flex md:flex-col">
+      <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-[384px_1fr] h-[calc(100vh-4rem)]">
+        <div className="hidden lg:flex lg:flex-col">
            <ReviewsSidebar 
               reviews={reviews} 
               markers={markers} 
@@ -133,7 +140,7 @@ export default function Home() {
             />
         </div>
         
-        {(selectedMarker || editingReview) && (
+        {isMarkerDetailsOpen && (selectedMarker || editingReview) && (
           <MarkerDetails
             marker={selectedMarker}
             reviews={reviewsForSelectedMarker}
@@ -142,9 +149,9 @@ export default function Home() {
             onAddReview={handleAddReview}
             onUpdateReview={handleUpdateReview}
             onDeleteReview={setDeletingReview}
-            onDeleteMarker={deleteMarker}
             editingReview={editingReview}
             onCancelEdit={() => setEditingReview(null)}
+            onEditReview={handleEditReview}
           />
         )}
 
