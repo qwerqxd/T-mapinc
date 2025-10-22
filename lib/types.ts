@@ -7,12 +7,14 @@ export type User = {
   email: string | null;
   avatarUrl: string | null;
   role: 'user' | 'admin';
-  createdAt?: Timestamp | Date | string;
+  createdAt?: any;
 };
 
 export type ReviewMedia = {
   type: 'image' | 'video';
   url: string;
+  storagePath?: string;
+  file?: File;
 }
 
 export type Review = {
@@ -23,8 +25,8 @@ export type Review = {
   authorAvatarUrl: string | null;
   text: string;
   rating: number; // 1-5
-  createdAt: Timestamp | Date | string; 
-  updatedAt?: Timestamp | Date | string;
+  createdAt: any; 
+  updatedAt?: any;
   media?: ReviewMedia[];
 };
 
@@ -35,5 +37,3 @@ export type MarkerData = {
   name: string;
   createdBy: string; // user ID
 };
-
-

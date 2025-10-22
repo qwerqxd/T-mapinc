@@ -9,6 +9,7 @@ import { useMarkers } from '@/hooks/use-markers';
 import { useAuth } from '@/contexts/auth-context';
 import type { Review, MarkerData, ReviewMedia } from '@/lib/types';
 import ReviewsSidebar from '@/components/reviews-sidebar';
+import { useToast } from '@/hooks/use-toast';
 
 
 export default function Home() {
@@ -24,6 +25,7 @@ export default function Home() {
     zoom: 10
   });
 
+  const { toast } = useToast();
   const { markers, reviews, loading, error, addMarkerWithReview, addReview, updateReview, deleteReview, deleteMarker } = useMarkers();
 
 
@@ -40,9 +42,13 @@ export default function Home() {
         setSelectedMarkerId(null);
         setNewMarkerCoords(coords);
     } else {
-        console.log("User must be logged in to create a marker");
+        toast({
+          title: 'Требуется авторизация',
+          description: 'Войдите в систему, чтобы добавлять новые места на карту.',
+          variant: 'destructive',
+        });
     }
-  }, [user]);
+  }, [user, toast]);
 
   const handleCreateMarkerWithReview = async (data: {name: string, text: string, rating: number, media: ReviewMedia[]}) => {
     if (newMarkerCoords) {

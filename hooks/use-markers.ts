@@ -13,7 +13,7 @@ import { uploadFile, deleteFile } from '@/firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 
 
-async function processMedia(userId: string, markerId: string, mediaItems: ReviewMedia[]): Promise<Omit<ReviewMedia, 'file'>[]> {
+async function processMedia(userId: string, markerId: string, mediaItems: ReviewMedia[]): Promise<ReviewMedia[]> {
     if (!mediaItems) return [];
     const uploadPromises = mediaItems.map(async (item) => {
         // If there's a file object, it means it's a new upload.
@@ -28,7 +28,7 @@ async function processMedia(userId: string, markerId: string, mediaItems: Review
         }
         // If there's no file, it's an existing media item. Just return its data without the file property.
         const { file, ...rest } = item;
-        return rest;
+        return rest as ReviewMedia;
     });
     return Promise.all(uploadPromises);
 }

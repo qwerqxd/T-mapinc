@@ -112,7 +112,15 @@ export default function MarkerForm({
   };
 
   const removeMedia = (url: string) => {
-    setMedia(prev => prev.filter(item => item.url !== url));
+    setMedia(prev => {
+        const newMedia = prev.filter(item => item.url !== url);
+        // Revoke the object URL to prevent memory leaks
+        const itemToRemove = prev.find(item => item.url === url);
+        if (itemToRemove) {
+            URL.revokeObjectURL(itemToRemove.url);
+        }
+        return newMedia;
+    });
   };
 
 
@@ -127,10 +135,10 @@ export default function MarkerForm({
           return;
         }
 
-        const reviewData = { name, text, rating, media };
-
+        const reviewData = { text, rating, media };
+        
         if(onMarkerCreate && coords) {
-            onMarkerCreate(reviewData);
+            onMarkerCreate({ name, ...reviewData });
             onOpenChange(false);
         }
         if(onFormSubmit){

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
@@ -80,7 +81,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // onAuthStateChanged will handle the rest, including setting loading to false
       return { success: true };
     } catch (error: any) {
-      // console.error('Login error:', error.message);
       setIsLoading(false);
       let errorMessage = 'Произошла неизвестная ошибка.';
       switch (error.code) {
@@ -106,7 +106,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await signOut(auth);
       // onAuthStateChanged will handle setting user state to null
     } catch (error) {
-      // console.error("Logout error:", error);
     }
   };
   
@@ -152,7 +151,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
          errorEmitter.emit('permission-error', permissionError);
          errorMessage = 'Ошибка сохранения данных пользователя.';
        } else {
-         // console.error("Registration auth error:", error.message);
          switch (error.code) {
             case 'auth/email-already-in-use':
               errorMessage = 'Пользователь с таким email уже существует.';
