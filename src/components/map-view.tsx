@@ -29,9 +29,6 @@ function MapView({
         width="100%"
         height="100%"
         state={mapState}
-        options={{
-          suppressMapOpenBlock: true,
-        }}
         type={mapType}
         onClick={(e: any) => {
           const coords = e.get('coords');
@@ -55,8 +52,8 @@ function MapView({
         ))}
       </Map>
        <div className="absolute top-3 right-3 z-10">
-        <ToggleGroup 
-          type="single" 
+        <ToggleGroup
+          type="single"
           value={mapType}
           onValueChange={(value: 'yandex#map' | 'yandex#satellite' | 'yandex#hybrid') => {
             if (value) onMapTypeChange(value);
