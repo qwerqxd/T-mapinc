@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { YMaps } from '@pbe/react-yandex-maps';
 import MapView from '@/components/map-view';
 import MarkerDetails from '@/components/marker-details';
 import MarkerForm from '@/components/marker-form';
@@ -75,15 +74,6 @@ export default function Home() {
   const handleCloseDetails = () => {
     setSelectedMarkerId(null);
   };
-
--  const handleDeleteMarker = async (markerId: string) => {
--    try {
--      // This should be handled by the useMarkers hook now
--      console.log("Deleting marker:", markerId)
--    } catch (error) {
--      console.error('Ошибка при удалении маркера:', error);
--    }
--  };
 
   if (loading) {
     return (
