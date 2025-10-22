@@ -26,9 +26,6 @@ export default function Home() {
 
   const { markers, reviews, loading, error, addMarkerWithReview, addReview, updateReview, deleteReview, deleteMarker } = useMarkers();
 
-  const [editingReview, setEditingReview] = useState<Review | null>(null);
-  const [deletingReview, setDeletingReview] = useState<Review | null>(null);
-
 
   const selectedMarker = useMemo(() => 
     selectedMarkerId ? markers.find(m => m.id === selectedMarkerId) : null,
@@ -64,20 +61,12 @@ export default function Home() {
 
   const handleUpdateReview = async (review: Review, updatedData: { text: string; rating: number; }) => {
     await updateReview(review, updatedData);
-    setEditingReview(null);
   }
 
   const handleDeleteReview = async (review: Review) => {
       await deleteReview(review);
   }
 
-  const handleEditReview = (review: Review) => {
-    const marker = markers.find(m => m.id === review.markerId);
-    if (marker) {
-      setSelectedMarkerId(marker.id);
-      setEditingReview(review);
-    }
-  };
 
   const handleMarkerClick = (markerId: string) => {
     setNewMarkerCoords(null);
@@ -90,21 +79,11 @@ export default function Home() {
 
   const handleCloseDetails = () => {
     setSelectedMarkerId(null);
-    setEditingReview(null);
   };
 
 
   return (
-      <div className="grid grid-cols-1 md:grid-cols-[384px_1fr] h-[calc(100vh-4rem)]">
-        <div className="hidden md:flex md:flex-col">
-           <ReviewsSidebar 
-             reviews={reviews} 
-             markers={markers} 
-             onReviewSelect={handleMarkerClick}
-             onEditReview={handleEditReview}
-             onDeleteReview={setDeletingReview}
-            />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_384px] h-[calc(100vh-4rem)]">
         <div className="relative">
             <MapView
               mapState={mapState}
@@ -113,6 +92,9 @@ export default function Home() {
               onMapClick={handleMapClick}
               selectedMarkerId={selectedMarkerId}
             />
+        </div>
+        <div className="hidden md:flex md:flex-col">
+           <ReviewsSidebar reviews={reviews} markers={markers} onReviewSelect={handleMarkerClick} />
         </div>
         
         {selectedMarker && (
@@ -123,10 +105,8 @@ export default function Home() {
             onOpenChange={(open) => !open && handleCloseDetails()}
             onAddReview={handleAddReview}
             onUpdateReview={handleUpdateReview}
-            onDeleteReview={setDeletingReview}
+            onDeleteReview={handleDeleteReview}
             onDeleteMarker={deleteMarker}
-            editingReview={editingReview}
-            onEditReviewChange={setEditingReview}
           />
         )}
 
