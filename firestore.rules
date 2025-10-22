@@ -2,86 +2,116 @@
  * @fileoverview Firestore Security Rules for the application.
  *
  * Core Philosophy:
- * This ruleset enforces a user-ownership model for user profiles and marker creation. Reviews are publicly readable, but their creation, updating, and deletion are restricted to the author.
+ * This ruleset enforces a strict user-ownership model for user profiles and
+ * allows public reads for markers and reviews. Administrative privileges are
+ * granted to users with the 'admin' role, allowing them full access. All write
+ * operations are carefully controlled to prevent unauthorized data modification.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information. Access is restricted to the owner.
- * - /markers/{markerId}: Stores map markers. Creation is restricted to authenticated users. Updates and deletes are not permitted.
- * - /reviews/{reviewId}: Stores reviews for markers. Reviews are publicly readable. Creation, updates, and deletion are restricted to the author of the review.
+ * - /users/{userId}: Stores individual user profiles. Access is restricted to the
+ *   owner (the user themselves) and administrators.
+ * - /markers/{markerId}: Stores location markers. Public read access is allowed,
+ *   but creation, modification, and deletion are restricted to authenticated users.
+ * - /reviews/{reviewId}: Stores user reviews for specific markers. Public read
+ *   access is allowed. Creation is restricted to authenticated users. Only admins
+ *   can update or delete reviews.
  *
  * Key Security Decisions:
- * - User listing is disallowed for privacy.
- * - Markers cannot be updated or deleted after creation.
- * - Reviews are publicly readable to encourage community engagement, but write access is limited to the author.
+ * - User listing is explicitly denied to protect user privacy.
+ * - Reviews are publicly readable to encourage transparency and community engagement.
+ * - Reviews created by users can only be modified or deleted by admins.
+ * - Data validation is limited to authorization-critical fields to accelerate development.
  *
  * Denormalization for Authorization:
- * - Reviews denormalize the author's UID into the `authorId` field, which is checked for write operations.
+ * - Reviews denormalize `authorId` which allows us to quickly secure access to reviews.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secures user profile documents.
+     * @description Secure user profiles. Only the owner or an admin can read or write.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their profile.
-     * @allow (get) User with ID 'user123' can read their profile.
-     * @allow (update) User with ID 'user123' can update their profile.
-     * @allow (delete) User with ID 'user123' can delete their profile.
-     * @deny (create) User with ID 'user456' cannot create a profile with ID 'user123'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - User 'abc' can create their own profile if authenticated.
+     * @allow (get, update, delete) - User 'abc' or an admin can access user 'abc''s profile.
+     * @deny (create, get, update, delete) - User 'def' cannot access user 'abc''s profile.
+     * @principle Enforces document ownership and admin override.
      */
     match /users/{userId} {
-      // Verify user is signed in
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // Listing users is not permitted for privacy.
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if false; // User listing is not permitted.
       allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow delete: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
 
     /**
-     * @description Secures map marker documents.
+     * @description Secure map markers. Allow public read, but only authenticated users can create.
+     *              Only the creating user can update or delete.
      * @path /markers/{markerId}
-     * @allow (create) User with ID 'user123' can create a marker.
-     * @deny (update) User with ID 'user123' cannot update a marker.
-     * @deny (delete) User with ID 'user123' cannot delete a marker.
-     * @principle Allows authenticated users to create markers, but prohibits modification or deletion.
+     * @allow (get, list) - Any user (or no user) can view markers.
+     * @allow (create) - User 'abc' can create a marker if authenticated.
+     * @allow (update, delete) - User 'abc' can modify a marker if they are the owner.
+     * @deny (create, update, delete) - Unauthenticated users can do none of these.
+     * @principle Enforces public read with owner-only writes.
      */
     match /markers/{markerId} {
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if false;
+      allow update: if isSignedIn() && isMarkerOwner(resource.data.createdBy);
+      allow delete: if isSignedIn() && isMarkerOwner(resource.data.createdBy);
     }
 
     /**
-     * @description Secures review documents.
+     * @description Secure reviews. Allow public read, authenticated create, admin update/delete.
      * @path /reviews/{reviewId}
-     * @allow (get) Any user can read a review.
-     * @allow (create) User with ID 'user123' can create a review.
-     * @allow (update) User with ID 'user123' can update their own review.
-     * @allow (delete) User with ID 'user123' can delete their own review.
-     * @deny (update) User with ID 'user456' cannot update a review created by 'user123'.
-     * @principle Allows public read access, but restricts writes to the author of the review.
+     * @allow (get, list) - Any user (or no user) can list reviews.
+     * @allow (create) - User 'abc' can create a review if authenticated and the data is valid.
+     * @allow (update, delete) - Only admins can modify/delete reviews.
+     * @deny (update, delete) - Non-admin users can do none of these.
+     * @principle Enforces public read, authenticated create, and admin-only modification.
      */
     match /reviews/{reviewId} {
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isSignedIn() && isExistingOwner(resource.data.authorId);
-      allow delete: if isSignedIn() && isExistingOwner(resource.data.authorId);
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if isSignedIn() && isAdmin();
     }
 
-    // Helper functions
+    // --- Helper Functions ---
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {boolean} True if the user is authenticated.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /**
+     * @description Checks if the user ID matches the authenticated user's ID.
+     * @param {string} userId The user ID to check.
+     * @return {boolean} True if the user is the owner of the resource.
+     */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-        return isSignedIn() && isOwner(userId) && resource != null;
+     /**
+      * @description Checks if the marker's createdBy field matches the authenticated user's ID.
+      * @param {string} userId The user ID to check.
+      * @return {boolean} True if the user is the owner of the marker.
+      */
+    function isMarkerOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user has the 'admin' role.
+     * @return {boolean} True if the user is an admin.
+     */
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }
