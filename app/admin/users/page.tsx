@@ -3,9 +3,9 @@
 import { useAuth } from '@/contexts/auth-context';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, CollectionReference } from 'firebase/firestore';
 import type { User } from '@/lib/types';
-import { AlertTriangle, Shield, User as UserIcon } from 'lucide-react';
+import { AlertTriangle, Shield, User as UserIcon, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -37,10 +37,11 @@ export default function AdminUsersPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   // Only fetch users if the current user is confirmed to be an admin.
   const { data: users, loading: usersLoading } = useCollection<User>(
-    isReady && firestore ? collection(firestore, 'users') : null
+    isReady && firestore ? (collection(firestore, 'users') as CollectionReference<User>) : null
   );
 
   const { toast } = useToast();
@@ -64,7 +65,8 @@ export default function AdminUsersPage() {
       });
       return;
     }
-
+    
+    setUpdatingUserId(targetUser.uid);
     try {
       await updateUserRole({
         editorId: currentUser.uid,
@@ -82,6 +84,8 @@ export default function AdminUsersPage() {
         description: error.message || 'Не удалось обновить роль пользователя.',
         variant: 'destructive',
       });
+    } finally {
+      setUpdatingUserId(null);
     }
   };
 
@@ -153,7 +157,11 @@ export default function AdminUsersPage() {
                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
                 <TableCell className="text-muted-foreground">{getCreationDate(user.createdAt)}</TableCell>
                 <TableCell>
-                  {currentUser?.uid === user.uid ? (
+                  {updatingUserId === user.uid ? (
+                    <div className="flex items-center justify-center w-[120px]">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : currentUser?.uid === user.uid ? (
                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">
                         {user.role === 'admin' ? <Shield className="mr-2 h-3.5 w-3.5" /> : <UserIcon className="mr-2 h-3.5 w-3.5" />}
                         {user.role}
@@ -162,6 +170,7 @@ export default function AdminUsersPage() {
                     <Select
                       value={user.role}
                       onValueChange={(newRole: 'admin' | 'user') => handleRoleChange(user, newRole)}
+                      disabled={!!updatingUserId}
                     >
                       <SelectTrigger className="w-[120px]">
                         <SelectValue placeholder="Роль" />
