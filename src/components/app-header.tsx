@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, Shield } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Logo } from './logo';
 import { FeedbackDialog } from './feedback-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -62,12 +62,6 @@ export default function AppHeader() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {user.role === 'admin' && (
-                <DropdownMenuItem onClick={() => router.push('/admin/users')}>
-                  <Shield className="mr-2 h-4 w-4" />
-                  <span>Админка</span>
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Выйти</span>

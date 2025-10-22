@@ -53,7 +53,7 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
     });
   }
 
-  const canModify = currentUser?.uid === review.authorId || currentUser?.role === 'admin';
+  const canModify = currentUser?.uid === review.authorId;
 
   return (
     <Card className={`overflow-hidden transition-all hover:shadow-md ${className}`}>
@@ -106,7 +106,7 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
               </div>
             )}
 
-            {canModify && (
+            {canModify && onEdit && onDelete && (
               <div className="flex justify-end gap-2 pt-2">
                 <TooltipProvider>
                   <Tooltip>

@@ -23,18 +23,13 @@
           "format": "uri",
           "description": "URL of the user's avatar image."
         },
-        "role": {
-          "type": "string",
-          "enum": ["user", "admin"],
-          "description": "The user's role."
-        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
           "description": "The timestamp when the user was created."
         }
       },
-      "required": ["uid", "name", "email", "role", "createdAt"]
+      "required": ["uid", "name", "email", "createdAt"]
     },
     "Marker": {
       "title": "Marker",
@@ -113,9 +108,13 @@
               "url": {
                 "type": "string",
                 "format": "uri"
+              },
+               "storagePath": {
+                "type": "string",
+                "description": "Path to the file in Firebase Storage."
               }
             },
-            "required": ["type", "url"]
+            "required": ["type", "url", "storagePath"]
           }
         }
       },

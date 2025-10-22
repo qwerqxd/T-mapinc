@@ -6,4 +6,3 @@ config();
 
 // Import flows here for their side effects.
 import './flows/get-location-from-coords-flow';
-import './flows/update-user-role-flow';

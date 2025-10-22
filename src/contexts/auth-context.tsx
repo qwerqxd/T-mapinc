@@ -127,12 +127,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Then create the user document in Firestore
       const userDocRef = doc(firestore, 'users', newUser.uid);
-      const userData: User = {
+      const userData: Omit<User, 'role'> = {
           uid: newUser.uid,
           name: name,
           email: email,
           avatarUrl: photoURL,
-          role: 'user',
           createdAt: serverTimestamp(),
       };
       
