@@ -6,7 +6,6 @@ import { AuthProvider } from '@/contexts/auth-context';
 import { Toaster } from '@/components/ui/toaster';
 import { Inter } from 'next/font/google';
 import { cn } from '@/lib/utils';
-import PreAlphaWarning from '@/components/pre-alpha-warning';
 import CookieConsentBanner from '@/components/cookie-consent-banner';
 import { YMaps } from '@pbe/react-yandex-maps';
 import AppHeader from '@/components/app-header';
@@ -42,7 +41,7 @@ export default function RootLayout({
                 </footer>
               </div>
               <Toaster />
-              <PreAlphaWarning />
+              {/* <PreAlphaWarning /> */}
               <CookieConsentBanner />
             </AuthProvider>
           </FirebaseClientProvider>
