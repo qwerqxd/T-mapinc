@@ -100,6 +100,7 @@ export default function MarkerForm({
               description: `Видео "${file.name}" длиннее 30 секунд.`,
               variant: 'destructive',
             });
+            URL.revokeObjectURL(objectURL);
           } else {
             setMedia((prev) => [...prev, newMediaItem]);
           }
@@ -112,7 +113,13 @@ export default function MarkerForm({
   };
 
   const removeMedia = (url: string) => {
-    setMedia(prev => prev.filter(item => item.url !== url));
+    setMedia(prev => {
+        const itemToRemove = prev.find(item => item.url === url);
+        if (itemToRemove && itemToRemove.url.startsWith('blob:')) {
+            URL.revokeObjectURL(itemToRemove.url);
+        }
+        return prev.filter(item => item.url !== url);
+    });
   };
 
 
@@ -127,10 +134,10 @@ export default function MarkerForm({
           return;
         }
 
-        const reviewData = { name, text, rating, media };
-
+        const reviewData = { text, rating, media };
+        
         if(onMarkerCreate && coords) {
-            onMarkerCreate(reviewData);
+            onMarkerCreate({ name, ...reviewData });
             onOpenChange(false);
         }
         if(onFormSubmit){

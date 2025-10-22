@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -45,6 +44,8 @@ export function useMarkers() {
         if (!user || !firestore) return;
 
         const processedMedia = await processMedia(user.uid, markerId, reviewData.media || []);
+        
+        reviewData.media.filter(m => m.url.startsWith('blob:')).forEach(m => URL.revokeObjectURL(m.url));
 
         const newReview: Omit<Review, 'id'> = {
             ...reviewData,
@@ -125,10 +126,14 @@ export function useMarkers() {
         };
 
         const oldMedia = reviewToUpdate.media || [];
-        const newMediaPaths = new Set(processedMedia.map(m => m.storagePath).filter(Boolean));
-        const mediaToDelete = oldMedia.filter(m => m.storagePath && !newMediaPaths.has(m.storagePath));
+        const newMediaStoragePaths = new Set(processedMedia.map(m => m.storagePath).filter(Boolean));
         
-        await Promise.all(mediaToDelete.map(m => m.storagePath && deleteFile(m.storagePath)));
+        // Delete files from storage that are no longer in the review
+        const mediaToDeleteFromStorage = oldMedia.filter(m => m.storagePath && !newMediaStoragePaths.has(m.storagePath));
+        await Promise.all(mediaToDeleteFromStorage.map(m => m.storagePath && deleteFile(m.storagePath)));
+
+        // Revoke blob URLs for files that were just uploaded
+        updatedData.media.filter(m => m.url.startsWith('blob:')).forEach(m => URL.revokeObjectURL(m.url));
 
         updateDoc(reviewRef, dataToUpdate)
             .then(() => {
