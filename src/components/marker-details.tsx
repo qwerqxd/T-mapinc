@@ -59,14 +59,14 @@ export default function MarkerDetails({
   const isFormForEditing = !!editingReview;
 
   const currentMarker = useMemo(() => {
-    return isFormForEditing ? marker : marker;
-  }, [isFormForEditing, marker]);
+    return isFormForEditing && editingReview ? reviews.find(r => r.id === editingReview.id) ? marker : null : marker;
+  }, [isFormForEditing, marker, editingReview, reviews]);
 
 
   const getMarkerTitle = () => {
-    if (!currentMarker) return '';
-    if (isFormForEditing) return `Редактирование отзыва для "${currentMarker.name}"`;
-    return currentMarker.name || "Отзывы о месте";
+    if (!marker) return '';
+    if (isFormForEditing) return `Редактирование отзыва для "${marker.name}"`;
+    return marker.name || "Отзывы о месте";
   }
 
   const getMarkerDescription = () => {
