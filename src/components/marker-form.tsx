@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useState, useRef, useTransition } from 'react';
@@ -26,8 +25,8 @@ interface MarkerFormProps {
   coords?: { lat: number; lng: number } | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onMarkerCreate?: (review: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & {name?:string}) => void;
-  onFormSubmit?: (reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
+  onMarkerCreate?: (data: { name: string; text: string; rating: number; media: ReviewMedia[] }) => void;
+  onFormSubmit?: (reviewData: { text: string; rating: number; media: ReviewMedia[] }) => void;
   isEditing?: boolean;
   initialData?: Review;
   onCancelEdit?: () => void;

@@ -16,6 +16,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
+import { FileImage, Video } from 'lucide-react';
+
 
 interface ReviewCardProps {
   review: Review;
@@ -44,7 +53,7 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
     });
   }
 
-  const canModify = currentUser && (currentUser.uid === review.authorId || currentUser.role === 'admin');
+  const canModify = currentUser?.uid === review.authorId || currentUser?.role === 'admin';
 
   return (
     <Card className={`overflow-hidden transition-all hover:shadow-md ${className}`}>
@@ -66,7 +75,38 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
             </div>
             <p className="text-sm text-foreground/90">{review.text}</p>
             
-            {canModify && onEdit && onDelete && (
+            {review.media && review.media.length > 0 && (
+              <div className="pt-2">
+                <Carousel className="w-full max-w-xs mx-auto">
+                  <CarouselContent>
+                    {review.media.map((media, index) => (
+                      <CarouselItem key={index}>
+                        <div className="p-1">
+                           <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+                            {media.type === 'image' ? (
+                                <img src={media.url} alt={`Review media ${index + 1}`} className="w-full h-full object-contain" />
+                            ) : (
+                                <video src={media.url} controls className="w-full h-full object-contain" />
+                            )}
+                             <div className="absolute bottom-2 left-2 bg-black/50 text-white p-1 rounded-full">
+                                {media.type === 'image' ? <FileImage className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+                              </div>
+                           </div>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  {review.media.length > 1 && (
+                    <>
+                      <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2" />
+                      <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2" />
+                    </>
+                  )}
+                </Carousel>
+              </div>
+            )}
+
+            {canModify && (
               <div className="flex justify-end gap-2 pt-2">
                 <TooltipProvider>
                   <Tooltip>

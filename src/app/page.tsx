@@ -7,7 +7,7 @@ import MarkerDetails from '@/components/marker-details';
 import MarkerForm from '@/components/marker-form';
 import { useMarkers } from '@/hooks/use-markers';
 import { useAuth } from '@/contexts/auth-context';
-import type { Review, MarkerData } from '@/lib/types';
+import type { Review, MarkerData, ReviewMedia } from '@/lib/types';
 import ReviewsSidebar from '@/components/reviews-sidebar';
 
 
@@ -45,7 +45,7 @@ export default function Home() {
     }
   }, [user]);
 
-  const handleCreateMarkerWithReview = async (data: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & {name?:string}) => {
+  const handleCreateMarkerWithReview = async (data: {name: string, text: string, rating: number, media: ReviewMedia[]}) => {
     if (newMarkerCoords) {
       const newMarkerId = await addMarkerWithReview(newMarkerCoords, data);
       if (newMarkerId) {
@@ -55,11 +55,11 @@ export default function Home() {
     }
   };
 
-  const handleAddReview = async (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleAddReview = async (markerId: string, reviewData: { text: string; rating: number; media: ReviewMedia[] }) => {
       await addReview(markerId, reviewData);
   }
 
-  const handleUpdateReview = async (review: Review, updatedData: { text: string; rating: number; }) => {
+  const handleUpdateReview = async (review: Review, updatedData: { text: string; rating: number; media: ReviewMedia[] }) => {
     await updateReview(review, updatedData);
   }
 

@@ -13,9 +13,10 @@ import { uploadFile, deleteFile } from '@/firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 
 
-async function processMedia(userId: string, markerId: string, mediaItems: ReviewMedia[]): Promise<ReviewMedia[]> {
+async function processMedia(userId: string, markerId: string, mediaItems: ReviewMedia[]): Promise<Omit<ReviewMedia, 'file'>[]> {
     if (!mediaItems) return [];
     const uploadPromises = mediaItems.map(async (item) => {
+        // If there's a file object, it means it's a new upload.
         if (item.file && !item.storagePath) {
             const storagePath = `reviews/${userId}/${markerId}/${uuidv4()}-${item.file.name}`;
             const { downloadURL } = await uploadFile(item.file, storagePath);
@@ -25,7 +26,9 @@ async function processMedia(userId: string, markerId: string, mediaItems: Review
                 storagePath: storagePath,
             };
         }
-        return item; // already uploaded or no file attached
+        // If there's no file, it's an existing media item. Just return its data.
+        const { file, ...rest } = item;
+        return rest;
     });
     return Promise.all(uploadPromises);
 }
@@ -38,14 +41,14 @@ export function useMarkers() {
     const { data: markers, loading: markersLoading, error: markersError } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') as CollectionReference<MarkerData> : null);
     const { data: reviews, loading: reviewsLoading, error: reviewsError } = useCollection<Review>(firestore ? collection(firestore, 'reviews') as CollectionReference<Review> : null);
 
-    const addReview = async (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+    const addReview = async (markerId: string, reviewData: { text: string; rating: number; media: ReviewMedia[] }) => {
         if (!user || !firestore) return;
 
         const processedMedia = await processMedia(user.uid, markerId, reviewData.media || []);
 
         const newReview: Omit<Review, 'id'> = {
             ...reviewData,
-            media: processedMedia.map(({ file, ...rest }) => rest), // remove File object before saving
+            media: processedMedia,
             markerId,
             authorId: user.uid,
             authorName: user.name || 'Анонимный пользователь',
@@ -69,10 +72,11 @@ export function useMarkers() {
           });
     };
 
-    const addMarkerWithReview = async (coords: { lat: number; lng: number }, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { name?: string }) => {
+    const addMarkerWithReview = async (coords: { lat: number; lng: number }, data: {name: string, text: string, rating: number, media: ReviewMedia[]}) => {
         if (!user || !firestore) return;
 
-        const markerName = reviewData.name;
+        const { name: markerName, ...reviewData } = data;
+
         if (!markerName) {
              toast({ title: 'Ошибка', description: 'Необходимо название для новой метки.', variant: 'destructive' });
              return null;
@@ -91,8 +95,7 @@ export function useMarkers() {
 
             await setDoc(newMarkerRef, newMarker);
 
-            const { name, ...reviewDataForDb } = reviewData;
-            await addReview(newMarkerRef.id, reviewDataForDb);
+            await addReview(newMarkerRef.id, reviewData);
             
             toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
             return newMarkerRef.id;
@@ -101,14 +104,14 @@ export function useMarkers() {
             const permissionError = new FirestorePermissionError({
               path: `markers/[new_marker]`,
               operation: 'create',
-              requestResourceData: { coords, reviewData },
+              requestResourceData: { coords, reviewData: data },
             });
             errorEmitter.emit('permission-error', permissionError);
         }
         return null;
     };
     
-    const updateReview = async (reviewToUpdate: Review, updatedData: { text: string; rating: number; media?: ReviewMedia[] }) => {
+    const updateReview = async (reviewToUpdate: Review, updatedData: { text: string; rating: number; media: ReviewMedia[] }) => {
         if (!user || !firestore) return;
         const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
         
@@ -117,7 +120,7 @@ export function useMarkers() {
         const dataToUpdate: any = {
             text: updatedData.text,
             rating: updatedData.rating,
-            media: processedMedia.map(({ file, ...rest }) => rest), // remove File object
+            media: processedMedia,
             updatedAt: serverTimestamp(),
         };
 
