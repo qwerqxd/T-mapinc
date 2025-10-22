@@ -6,6 +6,7 @@ export type User = {
   name: string | null;
   email: string | null;
   avatarUrl: string | null;
+  role: 'user' | 'admin';
   createdAt?: Timestamp | Date | string;
 };
 
@@ -35,3 +36,5 @@ export type MarkerData = {
   name: string;
   createdBy: string; // user ID
 };
+
+

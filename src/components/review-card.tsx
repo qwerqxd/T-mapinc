@@ -53,7 +53,7 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
     });
   }
 
-  const canModify = currentUser?.uid === review.authorId;
+  const canModify = currentUser?.uid === review.authorId || currentUser?.role === 'admin';
 
   return (
     <Card className={`overflow-hidden transition-all hover:shadow-md ${className}`}>
