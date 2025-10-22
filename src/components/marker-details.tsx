@@ -58,9 +58,17 @@ export default function MarkerDetails({
 
   const getMarkerTitle = () => {
     if (!marker && !editingReview) return '';
-    const currentMarker = marker || (reviews.find(r => r.id === editingReview?.id)?.markerId ? { name: reviews.find(r => r.id === editingReview?.id)?.text } : null);
-    if (!currentMarker) return "Редактирование отзыва";
-    return currentMarker.name || "Отзывы о месте";
+    
+    // Find the marker associated with the review being edited, if any.
+    const markerForEditedReview = editingReview 
+      ? reviews.find(r => r.id === editingReview.id)?.markerId
+      : null;
+      
+    const currentMarker = marker || (markerForEditedReview ? { name: reviews.find(r => r.markerId === markerForEditedReview)?.text } : null);
+    
+    if (editingReview) return "Редактирование отзыва";
+
+    return currentMarker?.name || "Отзывы о месте";
   }
 
   const getMarkerDescription = () => {
@@ -90,7 +98,7 @@ export default function MarkerDetails({
                 <ReviewCard 
                   key={review.id} 
                   review={review} 
-                  onEdit={() => onOpenChange(false)} // Should be handled by parent now
+                  onEdit={onCancelEdit} // This is a bit of a misnomer, it just closes the current dialog
                   onDelete={onDeleteReview} 
                 />
               ))
