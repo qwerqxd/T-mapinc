@@ -59,6 +59,7 @@ export default function ReviewsSidebar({
 
 
   const getReviewTimestamp = (createdAt: Review['createdAt']): number => {
+    if (!createdAt) return 0;
     if (createdAt instanceof Timestamp) {
       return createdAt.toMillis();
     }

@@ -49,12 +49,20 @@
           "type": "number",
           "description": "The longitude of the marker."
         },
+        "country": {
+          "type": "string",
+          "description": "The country where the marker is located."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city where the marker is located."
+        },
         "createdBy": {
           "type": "string",
           "description": "The UID of the user who created the marker."
         }
       },
-      "required": ["lat", "lng", "createdBy"]
+      "required": ["lat", "lng", "createdBy", "country", "city"]
     },
     "Review": {
       "title": "Review",
@@ -90,6 +98,11 @@
           "type": "string",
           "format": "date-time",
           "description": "The timestamp when the review was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the review was last updated."
         },
         "media": {
           "type": "array",
