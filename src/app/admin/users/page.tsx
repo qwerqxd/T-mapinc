@@ -5,7 +5,7 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { User } from '@/lib/types';
-import { AlertTriangle, Shield, User as UserIcon } from 'lucide-react';
+import { AlertTriangle, Shield, User as UserIcon, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { updateUserRole } from '@/ai/flows/update-user-role-flow';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -37,6 +37,8 @@ export default function AdminUsersPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   // Only fetch users if the current user is confirmed to be an admin.
   const { data: users, loading: usersLoading } = useCollection<User>(
@@ -64,25 +66,30 @@ export default function AdminUsersPage() {
       });
       return;
     }
-
-    try {
-      await updateUserRole({
-        editorId: currentUser.uid,
-        targetUserId: targetUser.uid,
-        newRole,
-      });
-      toast({
-        title: 'Успех',
-        description: `Роль пользователя ${targetUser.name} изменена на ${newRole}.`,
-      });
-    } catch (error: any) {
-      console.error('Failed to update user role:', error);
-      toast({
-        title: 'Ошибка',
-        description: error.message || 'Не удалось обновить роль пользователя.',
-        variant: 'destructive',
-      });
-    }
+    
+    setUpdatingUserId(targetUser.uid);
+    startTransition(async () => {
+      try {
+        await updateUserRole({
+          editorId: currentUser.uid,
+          targetUserId: targetUser.uid,
+          newRole,
+        });
+        toast({
+          title: 'Успех',
+          description: `Роль пользователя ${targetUser.name} изменена на ${newRole}.`,
+        });
+      } catch (error: any) {
+        console.error('Failed to update user role:', error);
+        toast({
+          title: 'Ошибка',
+          description: error.message || 'Не удалось обновить роль пользователя.',
+          variant: 'destructive',
+        });
+      } finally {
+        setUpdatingUserId(null);
+      }
+    });
   };
 
   if (!isReady || usersLoading || authLoading) {
@@ -153,7 +160,11 @@ export default function AdminUsersPage() {
                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
                 <TableCell className="text-muted-foreground">{getCreationDate(user.createdAt)}</TableCell>
                 <TableCell>
-                  {currentUser?.uid === user.uid ? (
+                  {updatingUserId === user.uid ? (
+                    <div className="flex items-center justify-center w-[120px]">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : currentUser?.uid === user.uid ? (
                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">
                         {user.role === 'admin' ? <Shield className="mr-2 h-3.5 w-3.5" /> : <UserIcon className="mr-2 h-3.5 w-3.5" />}
                         {user.role}
@@ -162,6 +173,7 @@ export default function AdminUsersPage() {
                     <Select
                       value={user.role}
                       onValueChange={(newRole: 'admin' | 'user') => handleRoleChange(user, newRole)}
+                      disabled={isPending}
                     >
                       <SelectTrigger className="w-[120px]">
                         <SelectValue placeholder="Роль" />
