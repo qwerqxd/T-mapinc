@@ -1,295 +1,225 @@
-
 'use client';
 
-import { YMaps } from '@pbe/react-yandex-maps';
-import { useState } from 'react';
-import type { MarkerData, Review } from '@/lib/types';
-import AppHeader from '@/components/app-header';
-import ReviewsSidebar from '@/components/reviews-sidebar';
-import dynamic from 'next/dynamic';
-import MarkerReviewDialog from '@/components/marker-review-dialog';
-import { useAuth } from '@/contexts/auth-context';
-import { useToast } from '@/hooks/use-toast';
-import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, updateDoc, CollectionReference } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { Skeleton } from '@/components/ui/skeleton';
-import { getLocationFromCoords } from '@/ai/flows/get-location-from-coords-flow';
-
-const MapView = dynamic(() => import('@/components/map-view'), {
-  ssr: false,
-  loading: () => <Skeleton className="h-full w-full" />,
-});
-
-
-// Helper function to calculate distance between two coordinates in meters
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3; // metres
-  const φ1 = (lat1 * Math.PI) / 180; // φ, λ in radians
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // in metres
-}
+import { useState, useEffect, useCallback } from 'react';
+import { MapView } from '@/components/map-view';
+import { MarkerDetails } from '@/components/marker-details';
+import { MarkerForm } from '@/components/marker-form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useMarkers } from '@/hooks/use-markers';
+import { Marker } from '@/lib/types';
+import { Search, Plus, Filter } from 'lucide-react';
 
 export default function Home() {
-  const firestore = useFirestore();
-  const { data: markers, loading: markersLoading } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') as CollectionReference<MarkerData> : null);
-  const { data: reviews, loading: reviewsLoading } = useCollection<Review>(firestore ? collection(firestore, 'reviews') as CollectionReference<Review> : null);
-  
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
-  const [newMarkerCoords, setNewMarkerCoords] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const [mapState, setMapState] = useState({
-    center: [55.751244, 37.618423],
-    zoom: 10,
+  const [isCreatingMarker, setIsCreatingMarker] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [categories, setCategories] = useState<string[]>([]);
+  
+  // ИСПРАВЛЕНИЕ: Явно указать тип для center как [number, number]
+  const [mapState, setMapState] = useState<{
+    center: [number, number];
+    zoom: number;
+  }>({
+    center: [55.75, 37.57], // Москва по умолчанию
+    zoom: 10
   });
 
+  const { markers, loading, error, createMarker, updateMarker, deleteMarker } = useMarkers();
 
-  const { user } = useAuth();
-  const { toast } = useToast();
+  // Фильтрация маркеров по поисковому запросу и категории
+  const filteredMarkers = markers.filter(marker => {
+    const matchesSearch = marker.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         marker.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || marker.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
-  const handleMapClick = (lat: number, lng: number) => {
-    if (!user) {
-      toast({
-        title: 'Требуется аутентификация',
-        description: 'Вам нужно войти в систему, чтобы добавить метку.',
-        variant: 'destructive',
-      });
-      return;
+  // Получение уникальных категорий
+  useEffect(() => {
+    const uniqueCategories = Array.from(new Set(markers.map(marker => marker.category).filter(Boolean)));
+    setCategories(uniqueCategories);
+  }, [markers]);
+
+  const selectedMarker = selectedMarkerId ? markers.find(m => m.id === selectedMarkerId) : null;
+
+  const handleMapClick = useCallback((coordinates: [number, number]) => {
+    if (isCreatingMarker) {
+      setIsCreatingMarker(false);
+      // Здесь можно открыть форму создания маркера с предзаполненными координатами
+      console.log('Создание маркера по координатам:', coordinates);
     }
-    
-    if (!markers) return;
+  }, [isCreatingMarker]);
 
-    const nearbyMarker = markers.find(
-      (marker) => getDistance(marker.lat, marker.lng, lat, lng) < 500
-    );
+  const handleCreateMarker = async (markerData: Omit<Marker, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      await createMarker(markerData);
+      setIsCreatingMarker(false);
+    } catch (error) {
+      console.error('Ошибка при создании маркера:', error);
+    }
+  };
 
-    if (nearbyMarker) {
-      setSelectedMarkerId(nearbyMarker.id);
-      toast({
-        title: 'Метка уже существует',
-        description: 'Рядом уже есть метка. Добавьте свой отзыв к ней.',
-      });
-    } else {
+  const handleUpdateMarker = async (markerId: string, markerData: Partial<Marker>) => {
+    try {
+      await updateMarker(markerId, markerData);
       setSelectedMarkerId(null);
-      setNewMarkerCoords({ lat, lng });
-    }
-  };
-  
-  const handleReviewSelect = (markerId: string) => {
-    if (!markers) return;
-    const marker = markers.find(m => m.id === markerId);
-    if (marker) {
-      setMapState(prevState => ({ ...prevState, center: [marker.lat, marker.lng], zoom: 15 }));
-      setSelectedMarkerId(markerId);
+    } catch (error) {
+      console.error('Ошибка при обновлении маркера:', error);
     }
   };
 
-  const handleAddReview = (review: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => {
-    if (!user || !selectedMarkerId || !firestore) return;
-
-    const newReview = {
-      ...review,
-      authorId: user.uid,
-      authorName: user.name || 'Анонимный пользователь',
-      authorAvatarUrl: user.avatarUrl || null,
-      createdAt: serverTimestamp(),
-    };
-    
-    const reviewsCollection = collection(firestore, 'reviews');
-    addDoc(reviewsCollection, newReview).then(() => {
-        toast({ title: 'Успех', description: 'Ваш отзыв был отправлен.'});
-        // We don't close the dialog so user can see their new review.
-        setNewReviewText('');
-        setNewRating(0);
-        setNewMedia([]);
-    }).catch(serverError => {
-      const permissionError = new FirestorePermissionError({
-        path: reviewsCollection.path,
-        operation: 'create',
-        requestResourceData: newReview,
-      });
-      errorEmitter.emit('permission-error', permissionError);
-    });
-  };
-
-  const handleUpdateReview = (reviewToUpdate: Review, updatedData: { text: string; rating: number; media?: {type: 'image' | 'video', url: string}[] }) => {
-    if (!user || !firestore) return;
-    const reviewRef = doc(firestore, 'reviews', reviewToUpdate.id);
-    
-    const dataToUpdate = {
-        ...updatedData,
-        updatedAt: serverTimestamp(),
-    };
-
-    updateDoc(reviewRef, dataToUpdate).then(() => {
-        toast({ title: 'Успех', description: 'Ваш отзыв был обновлен.' });
-    }).catch(serverError => {
-        const permissionError = new FirestorePermissionError({
-            path: reviewRef.path,
-            operation: 'update',
-            requestResourceData: dataToUpdate,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
-  };
-
-  const handleDeleteReview = async (reviewToDelete: Review) => {
-    if (!user || !firestore) {
-      toast({
-        title: 'Ошибка',
-        description: 'Вы должны войти в систему, чтобы удалить отзыв.',
-        variant: 'destructive'
-      });
-      return;
-    }
-    
-    const reviewRef = doc(firestore, 'reviews', reviewToDelete.id);
-
+  const handleDeleteMarker = async (markerId: string) => {
     try {
-      await deleteDoc(reviewRef);
-      toast({ title: 'Успех', description: 'Ваш отзыв был удален.' });
-
-      // Check if it was the last review for the marker
-      const otherReviewsForMarker = reviews?.filter(
-        (r) => r.markerId === reviewToDelete.markerId && r.id !== reviewToDelete.id
-      );
-
-      if (otherReviewsForMarker && otherReviewsForMarker.length === 0) {
-        const markerRef = doc(firestore, 'markers', reviewToDelete.markerId);
-        try {
-          await deleteDoc(markerRef);
-          toast({ title: 'Успех', description: 'Последний отзыв и метка были удалены.' });
-        } catch(markerError) {
-           const permissionError = new FirestorePermissionError({
-              path: markerRef.path,
-              operation: 'delete',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        }
-      }
-      closeDialogs();
-    } catch (error: any) {
-        const permissionError = new FirestorePermissionError({
-            path: reviewRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+      await deleteMarker(markerId);
+      setSelectedMarkerId(null);
+    } catch (error) {
+      console.error('Ошибка при удалении маркера:', error);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Загрузка карты...</div>
+      </div>
+    );
+  }
 
-  const handleAddMarkerWithReview = async (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
-    if (!user || !newMarkerCoords || !firestore) return;
-
-    try {
-      const location = await getLocationFromCoords({ lat: newMarkerCoords.lat, lng: newMarkerCoords.lng });
-
-      const markersCollection = collection(firestore, 'markers');
-      const newMarkerRef = doc(markersCollection);
-
-      const newMarker: Omit<MarkerData, 'id'> = {
-        createdBy: user.uid,
-        lat: newMarkerCoords.lat,
-        lng: newMarkerCoords.lng,
-        name: location.name,
-      };
-
-      const markerWithId: MarkerData = { ...newMarker, id: newMarkerRef.id };
-
-      await setDoc(newMarkerRef, newMarker);
-
-      const reviewsCollection = collection(firestore, 'reviews');
-      const newReview = {
-        ...reviewData,
-        authorId: user.uid,
-        authorName: user.name || 'Анонимный пользователь',
-        authorAvatarUrl: user.avatarUrl || null,
-        markerId: markerWithId.id,
-        createdAt: serverTimestamp(),
-      };
-
-      await addDoc(reviewsCollection, newReview);
-      
-      setNewMarkerCoords(null);
-      setSelectedMarkerId(markerWithId.id);
-      toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
-
-    } catch (error: any) {
-      console.error("Error creating marker with review:", error);
-      toast({
-        title: 'Ошибка',
-        description: error.message || 'Не удалось создать метку и отзыв.',
-        variant: 'destructive',
-      });
-      // Basic error handling for demo. In a real app, you might want more specific error handling.
-      // e.g. check for Firestore permission errors and emit them.
-    }
-  };
-  
-  const selectedMarker = markers?.find((m) => m.id === selectedMarkerId);
-
-  const closeDialogs = () => {
-    setSelectedMarkerId(null);
-    setNewMarkerCoords(null);
-  };
-  
-  const [newReviewText, setNewReviewText] = useState('');
-  const [newRating, setNewRating] = useState(0);
-  const [newMedia, setNewMedia] = useState<{type: 'image' | 'video', url: string}[]>([]);
-
-  const allReviewsForMarker = reviews?.filter(r => r.markerId === selectedMarkerId) || [];
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-red-600">Ошибка: {error}</div>
+      </div>
+    );
+  }
 
   return (
-    <YMaps
-      query={{
-        apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY,
-        lang: 'ru_RU',
-      }}
-    >
-      <div className="flex h-dvh w-full flex-col font-body">
-        <AppHeader />
-        <main className="grid flex-1 grid-cols-1 md:grid-cols-[380px_1fr] lg:grid-cols-[420px_1fr] xl:grid-cols-[480px_1fr] overflow-hidden">
-          <ReviewsSidebar reviews={reviews || []} markers={markers || []} onReviewSelect={handleReviewSelect} />
-          <div className="relative h-full bg-muted/30">
-            <MapView
-              mapState={mapState}
-              markers={markers || []}
-              onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
-              onMapClick={handleMapClick}
+    <div className="flex h-screen bg-background">
+      {/* Боковая панель */}
+      <div className="w-96 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="p-6 space-y-6">
+          {/* Заголовок и кнопка добавления */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Карта маркеров</h1>
+            <Button
+              onClick={() => setIsCreatingMarker(!isCreatingMarker)}
+              variant={isCreatingMarker ? "destructive" : "default"}
+              size="sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {isCreatingMarker ? 'Отмена' : 'Добавить'}
+            </Button>
+          </div>
+
+          {/* Поиск */}
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Поиск маркеров..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
             />
           </div>
-        </main>
 
-        <MarkerReviewDialog
-          marker={selectedMarker}
-          reviews={allReviewsForMarker}
-          coords={newMarkerCoords}
-          isOpen={!!selectedMarker || !!newMarkerCoords}
-          onOpenChange={(open) => !open && closeDialogs()}
-          onReviewSubmit={(reviewData) => handleAddReview({...reviewData, markerId: selectedMarkerId || ''})}
-          onMarkerCreate={handleAddMarkerWithReview}
-          onReviewUpdate={handleUpdateReview}
-          onReviewDelete={handleDeleteReview}
-          newReviewText={newReviewText}
-          setNewReviewText={setNewReviewText}
-          newRating={newRating}
-          setNewRating={setNewRating}
-          newMedia={newMedia}
-          setNewMedia={setNewMedia}
-        />
+          {/* Фильтр по категориям */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Категория</span>
+            </div>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full p-2 border rounded-md bg-background"
+            >
+              <option value="all">Все категории</option>
+              {categories.map(category => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Список маркеров */}
+          <div className="space-y-3">
+            <h3 className="font-semibold">Маркеры ({filteredMarkers.length})</h3>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {filteredMarkers.map(marker => (
+                <div
+                  key={marker.id}
+                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                    selectedMarkerId === marker.id 
+                      ? 'border-primary bg-primary/5' 
+                      : 'hover:border-primary/50'
+                  }`}
+                  onClick={() => setSelectedMarkerId(marker.id)}
+                >
+                  <div className="font-medium">{marker.title}</div>
+                  {marker.category && (
+                    <div className="text-sm text-muted-foreground">{marker.category}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {new Date(marker.createdAt).toLocaleDateString('ru-RU')}
+                  </div>
+                </div>
+              ))}
+              {filteredMarkers.length === 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                  {markers.length === 0 ? 'Маркеры не найдены' : 'Ничего не найдено'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Подсказка для режима создания */}
+          {isCreatingMarker && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                Нажмите на карту, чтобы выбрать место для нового маркера
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </YMaps>
+
+      {/* Основная область с картой */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 relative">
+          <div className="absolute inset-0 bg-muted/30">
+            {/* ИСПРАВЛЕНИЕ: mapState теперь имеет правильный тип */}
+            <MapView
+              mapState={mapState}
+              markers={filteredMarkers}
+              onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
+              onMapClick={handleMapClick}
+              onMapStateChange={setMapState}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Детали маркера */}
+      {selectedMarker && (
+        <MarkerDetails
+          marker={selectedMarker}
+          onClose={() => setSelectedMarkerId(null)}
+          onEdit={(markerData) => handleUpdateMarker(selectedMarker.id, markerData)}
+          onDelete={() => handleDeleteMarker(selectedMarker.id)}
+        />
+      )}
+
+      {/* Форма создания маркера */}
+      {isCreatingMarker && (
+        <MarkerForm
+          onSubmit={handleCreateMarker}
+          onCancel={() => setIsCreatingMarker(false)}
+          initialCoordinates={mapState.center}
+        />
+      )}
+    </div>
   );
 }
