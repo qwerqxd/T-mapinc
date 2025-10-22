@@ -16,8 +16,8 @@ export function useMarkers() {
     const { user } = useAuth();
     const { toast } = useToast();
 
-    const { data: markers } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') as CollectionReference<MarkerData> : null);
-    const { data: reviews } = useCollection<Review>(firestore ? collection(firestore, 'reviews') as CollectionReference<Review> : null);
+    const { data: markers, loading: markersLoading, error: markersError } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') as CollectionReference<MarkerData> : null);
+    const { data: reviews, loading: reviewsLoading, error: reviewsError } = useCollection<Review>(firestore ? collection(firestore, 'reviews') as CollectionReference<Review> : null);
 
     const addReview = async (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
         if (!user || !firestore) return;
@@ -143,6 +143,8 @@ export function useMarkers() {
     return {
         markers: markers || [],
         reviews: reviews || [],
+        loading: markersLoading || reviewsLoading,
+        error: markersError || reviewsError,
         addReview,
         addMarkerWithReview,
         updateReview,

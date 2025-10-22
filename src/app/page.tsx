@@ -5,12 +5,12 @@ import { useState, useMemo, useCallback } from 'react';
 import MapView from '@/components/map-view';
 import MarkerDetails from '@/components/marker-details';
 import MarkerForm from '@/components/marker-form';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useMarkers } from '@/hooks/use-markers';
 import type { MarkerData } from '@/lib/types';
-import { Search, Plus } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Home() {
   const { user } = useAuth();
@@ -54,7 +54,10 @@ export default function Home() {
 
   const handleCreateMarkerWithReview = async (reviewData: Omit<any, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
     if (newMarkerCoords) {
-      await addMarkerWithReview(newMarkerCoords, reviewData);
+      const newMarkerId = await addMarkerWithReview(newMarkerCoords, reviewData);
+      if (newMarkerId) {
+        setSelectedMarkerId(newMarkerId);
+      }
       setNewMarkerCoords(null); 
     }
   };
@@ -75,21 +78,6 @@ export default function Home() {
     setSelectedMarkerId(null);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Загрузка карты...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg text-red-600">Ошибка: {error.message}</div>
-      </div>
-    );
-  }
 
   return (
       <div className="flex h-screen bg-background">
@@ -108,30 +96,45 @@ export default function Home() {
           </div>
           
           <div className="flex-1 space-y-3 overflow-y-auto px-6">
-            <h3 className="font-semibold">Маркеры ({filteredMarkers.length})</h3>
-            <div className="space-y-2">
-              {filteredMarkers.map(marker => (
-                <div
-                  key={marker.id}
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedMarkerId === marker.id 
-                      ? 'border-primary bg-primary/5' 
-                      : 'hover:border-primary/50'
-                  }`}
-                  onClick={() => handleMarkerClick(marker.id)}
-                >
-                  <div className="font-medium">{marker.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {/* Displaying review count could be a future enhancement */}
-                  </div>
+            {loading ? (
+              <div className="space-y-2">
+                <h3 className="font-semibold">Маркеры (Загрузка...)</h3>
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            ) : error ? (
+              <div className="text-center text-destructive py-8">
+                Ошибка загрузки маркеров.
+              </div>
+            ) : (
+              <>
+                <h3 className="font-semibold">Маркеры ({filteredMarkers.length})</h3>
+                <div className="space-y-2">
+                  {filteredMarkers.map(marker => (
+                    <div
+                      key={marker.id}
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedMarkerId === marker.id 
+                          ? 'border-primary bg-primary/5' 
+                          : 'hover:border-primary/50'
+                      }`}
+                      onClick={() => handleMarkerClick(marker.id)}
+                    >
+                      <div className="font-medium">{marker.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {/* Displaying review count could be a future enhancement */}
+                      </div>
+                    </div>
+                  ))}
+                  {filteredMarkers.length === 0 && (
+                    <div className="text-center text-muted-foreground py-8">
+                      {markers.length === 0 ? 'Маркеры не найдены' : 'Ничего не найдено'}
+                    </div>
+                  )}
                 </div>
-              ))}
-              {filteredMarkers.length === 0 && (
-                <div className="text-center text-muted-foreground py-8">
-                  {markers.length === 0 ? 'Маркеры не найдены' : 'Ничего не найдено'}
-                </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
 
             {user && (
