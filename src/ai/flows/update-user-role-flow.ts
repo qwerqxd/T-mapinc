@@ -2,7 +2,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getFirestore, doc, getDoc, updateDoc, initializeFirestore } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 
@@ -12,7 +12,7 @@ const serverApp = !getApps().find(app => app.name === 'server')
   ? initializeApp(firebaseConfig, 'server') 
   : getApp('server');
 
-const firestore = initializeFirestore(serverApp);
+const firestore = getFirestore(serverApp);
 
 
 const UpdateUserRoleInputSchema = z.object({
