@@ -7,10 +7,11 @@ import MarkerDetails from '@/components/marker-details';
 import MarkerForm from '@/components/marker-form';
 import { Input } from '@/components/ui/input';
 import { useMarkers } from '@/hooks/use-markers';
-import type { MarkerData } from '@/lib/types';
 import { Search } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Review, ReviewMedia } from '@/lib/types';
+
 
 export default function Home() {
   const { user } = useAuth();
@@ -52,9 +53,9 @@ export default function Home() {
     }
   }, [user]);
 
-  const handleCreateMarkerWithReview = async (reviewData: Omit<any, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleCreateMarkerWithReview = async (data: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & {name?:string}) => {
     if (newMarkerCoords) {
-      const newMarkerId = await addMarkerWithReview(newMarkerCoords, reviewData);
+      const newMarkerId = await addMarkerWithReview(newMarkerCoords, data);
       if (newMarkerId) {
         setSelectedMarkerId(newMarkerId);
       }
@@ -62,9 +63,18 @@ export default function Home() {
     }
   };
 
-  const handleAddReview = async (markerId: string, reviewData: Omit<any, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleAddReview = async (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
       await addReview(markerId, reviewData);
   }
+
+  const handleUpdateReview = async (review: Review, updatedData: { text: string; rating: number; media: ReviewMedia[] }) => {
+    await updateReview(review, updatedData);
+  }
+
+  const handleDeleteReview = async (review: Review) => {
+      await deleteReview(review);
+  }
+
 
   const handleMarkerClick = (markerId: string) => {
     setSelectedMarkerId(markerId);
@@ -80,10 +90,10 @@ export default function Home() {
 
 
   return (
-      <div className="flex h-screen bg-background">
+      <div className="flex h-[calc(100vh-4rem)] bg-background">
         <div className="w-96 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex flex-col">
           <div className="p-6 space-y-6">
-            <h1 className="text-2xl font-bold">Карта маркеров</h1>
+            <h1 className="text-2xl font-bold">Карта отзывов</h1>
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -123,7 +133,7 @@ export default function Home() {
                     >
                       <div className="font-medium">{marker.name}</div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {/* Displaying review count could be a future enhancement */}
+                        {reviews.filter(r => r.markerId === marker.id).length} отзывов
                       </div>
                     </div>
                   ))}
@@ -141,7 +151,7 @@ export default function Home() {
               <div className="p-6 mt-auto">
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-500/30">
                     <p className="text-sm text-blue-800 dark:text-blue-300">
-                        Нажмите на карту, чтобы добавить новый отзыв.
+                        Нажмите на карту, чтобы добавить новое место.
                     </p>
                 </div>
               </div>
@@ -165,8 +175,8 @@ export default function Home() {
             isOpen={!!selectedMarkerId}
             onOpenChange={(open) => !open && handleCloseDetails()}
             onAddReview={handleAddReview}
-            onUpdateReview={updateReview}
-            onDeleteReview={deleteReview}
+            onUpdateReview={handleUpdateReview}
+            onDeleteReview={handleDeleteReview}
             onDeleteMarker={() => {}}
           />
         )}

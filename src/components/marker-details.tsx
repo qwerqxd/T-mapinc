@@ -87,8 +87,13 @@ export default function MarkerDetails({
 
   return (
     <>
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[80vh] flex flex-col">
+    <Dialog open={isOpen} onOpenChange={(open) => {
+        if (!open) {
+            setEditingReview(null);
+        }
+        onOpenChange(open);
+    }}>
+      <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{getMarkerTitle()}</DialogTitle>
           <DialogDescription>
@@ -124,8 +129,8 @@ export default function MarkerDetails({
               initialData={editingReview || undefined}
               onFormSubmit={editingReview ? handleEditSubmit : handleAddSubmit}
               onCancelEdit={() => setEditingReview(null)}
-              isOpen={true}
-              onOpenChange={()=>{}}
+              isOpen={true} 
+              onOpenChange={()=>{}} 
             />
           </>
         )}

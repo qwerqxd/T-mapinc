@@ -35,3 +35,4 @@ export type MarkerData = {
   name: string;
   createdBy: string; // user ID
 };
+

@@ -18,13 +18,14 @@ import { useAuth } from '@/contexts/auth-context';
 import type { Review, ReviewMedia } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Paperclip, X, FileImage, Video, Loader2 } from 'lucide-react';
+import { Input } from './ui/input';
 
 
 interface MarkerFormProps {
   coords?: { lat: number; lng: number } | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onMarkerCreate?: (review: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
+  onMarkerCreate?: (review: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & {name?:string}) => void;
   onFormSubmit?: (reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => void;
   isEditing?: boolean;
   initialData?: Review;
@@ -49,16 +50,18 @@ export default function MarkerForm({
   const [text, setText] = useState('');
   const [rating, setRating] = useState(0);
   const [media, setMedia] = useState<ReviewMedia[]>([]);
+  const [name, setName] = useState('');
 
   useEffect(() => {
     if (isEditing && initialData) {
       setText(initialData.text);
       setRating(initialData.rating);
       setMedia(initialData.media || []);
-    } else if (!isOpen) { // Reset when dialog closes
+    } else if (!isEditing) { // Reset when dialog opens for creation
       setText('');
       setRating(0);
       setMedia([]);
+      setName('');
     }
   }, [isEditing, initialData, isOpen]);
 
@@ -79,7 +82,26 @@ export default function MarkerForm({
     Array.from(files).forEach(file => {
       const fileType = file.type.startsWith('image') ? 'image' : 'video';
       const objectURL = URL.createObjectURL(file);
-      setMedia(prev => [...prev, { type: fileType, url: objectURL }]);
+      
+      if (fileType === 'video') {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => {
+          window.URL.revokeObjectURL(video.src);
+          if (video.duration > 30) {
+            toast({
+              title: 'Ошибка',
+              description: `Видео "${file.name}" длиннее 30 секунд.`,
+              variant: 'destructive',
+            });
+          } else {
+            setMedia(prev => [...prev, { type: 'video', url: objectURL }]);
+          }
+        };
+        video.src = objectURL;
+      } else {
+        setMedia(prev => [...prev, { type: 'image', url: objectURL }]);
+      }
     });
   };
 
@@ -94,12 +116,12 @@ export default function MarkerForm({
           toast({ title: 'Ошибка', description: 'Вы должны войти в систему.', variant: 'destructive'});
           return;
         }
-        if (text.trim() === '' || rating === 0) {
-          toast({ title: 'Ошибка', description: 'Пожалуйста, поставьте оценку и напишите текст отзыва.', variant: 'destructive' });
+        if ((onMarkerCreate && name.trim() === '') || text.trim() === '' || rating === 0) {
+          toast({ title: 'Ошибка', description: 'Пожалуйста, укажите название, поставьте оценку и напишите текст отзыва.', variant: 'destructive' });
           return;
         }
 
-        const reviewData = { text, rating, media };
+        const reviewData = { name, text, rating, media };
 
         if(onMarkerCreate && coords) {
             onMarkerCreate(reviewData);
@@ -114,6 +136,7 @@ export default function MarkerForm({
           setText('');
           setRating(0);
           setMedia([]);
+          setName('');
         }
     });
   };
@@ -121,7 +144,19 @@ export default function MarkerForm({
   const formContent = (
     <div className='py-4'>
       <div className="space-y-3">
-        <h3 className="text-md font-semibold">{isEditing ? 'Редактировать ваш отзыв' : 'Добавьте свой отзыв'}</h3>
+        {!isEditing && onMarkerCreate && (
+             <div className="space-y-2">
+                <label htmlFor="marker-name" className='text-md font-semibold'>Название места</label>
+                <Input
+                    id="marker-name"
+                    placeholder="Например, «Лучшая кофейня»"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={isPending}
+                />
+             </div>
+        )}
+        <h3 className="text-md font-semibold">{isEditing ? 'Редактировать ваш отзыв' : 'Ваш отзыв'}</h3>
         <StarRating rating={rating} onRatingChange={setRating} interactive />
         <Textarea
           placeholder="Поделитесь своим опытом..."
@@ -177,7 +212,7 @@ export default function MarkerForm({
         {isEditing && onCancelEdit && (
           <Button variant="ghost" onClick={onCancelEdit} disabled={isPending}>Отмена</Button>
         )}
-        <Button onClick={handleSubmit} className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90" disabled={isPending}>
+        <Button onClick={handleSubmit} className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90" disabled={isPending}>
             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
             {isPending ? 'Отправка...' : isEditing ? 'Сохранить изменения' : onMarkerCreate ? 'Создать метку и отзыв' : 'Отправить отзыв'}
         </Button>
@@ -191,8 +226,8 @@ export default function MarkerForm({
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Новый отзыв</DialogTitle>
-                    <DialogDescription>Оставьте первый отзыв об этом месте.</DialogDescription>
+                    <DialogTitle>Новое место</DialogTitle>
+                    <DialogDescription>Добавьте новое место на карту и оставьте первый отзыв.</DialogDescription>
                 </DialogHeader>
                 {formContent}
             </DialogContent>

@@ -1,13 +1,11 @@
 'use client';
 
-import type { Metadata } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AuthProvider } from '@/contexts/auth-context';
 import { Toaster } from '@/components/ui/toaster';
 import { Inter } from 'next/font/google';
 import { cn } from '@/lib/utils';
-import Head from 'next/head';
 import PreAlphaWarning from '@/components/pre-alpha-warning';
 import CookieConsentBanner from '@/components/cookie-consent-banner';
 import { YMaps } from '@pbe/react-yandex-maps';
@@ -17,12 +15,6 @@ const inter = Inter({ subsets: ['latin', 'cyrillic'] });
 
 // Metadata object cannot be exported from a client component.
 // We can either move it to a parent layout or remove it if not strictly necessary.
-// For now, I will comment it out to resolve the build error, 
-// but it should ideally be handled in a parent server component.
-// export const metadata: Metadata = {
-//   title: 'T-mapinc',
-//   description: 'Интерактивная карта с отзывами пользователей',
-// };
 
 export default function RootLayout({
   children,
@@ -44,7 +36,7 @@ export default function RootLayout({
             <AuthProvider>
               <div className="flex flex-col min-h-screen">
                 <AppHeader />
-                <main className="flex-grow">{children}</main>
+                <main className="flex-grow bg-background">{children}</main>
                 <footer className="bg-card border-t p-4 text-center text-sm text-muted-foreground">
                   <p>© {new Date().getFullYear()} T-mapinc. Все права защищены.</p>
                 </footer>

@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
+// Note: We're not using the AI flow for this anymore, but keeping the import to avoid breaking changes if it's used elsewhere.
 import { getLocationFromCoords } from '@/ai/flows/get-location-from-coords-flow';
 
 export function useMarkers() {
@@ -29,6 +30,7 @@ export function useMarkers() {
             authorName: user.name || 'Анонимный пользователь',
             authorAvatarUrl: user.avatarUrl || null,
             createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
         };
 
         const reviewsCollection = collection(firestore, 'reviews');
@@ -45,12 +47,16 @@ export function useMarkers() {
         }
     };
 
-    const addMarkerWithReview = async (coords: { lat: number; lng: number }, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+    const addMarkerWithReview = async (coords: { lat: number; lng: number }, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { name?: string }) => {
         if (!user || !firestore) return;
 
-        try {
-            const location = await getLocationFromCoords({ lat: coords.lat, lng: coords.lng });
+        const markerName = reviewData.name;
+        if (!markerName) {
+             toast({ title: 'Ошибка', description: 'Необходимо название для новой метки.', variant: 'destructive' });
+             return null;
+        }
 
+        try {
             const markersCollection = collection(firestore, 'markers');
             const newMarkerRef = doc(markersCollection);
             
@@ -58,22 +64,26 @@ export function useMarkers() {
                 createdBy: user.uid,
                 lat: coords.lat,
                 lng: coords.lng,
-                name: location.name,
+                name: markerName,
             };
 
             await setDoc(newMarkerRef, newMarker);
 
-            await addReview(newMarkerRef.id, reviewData);
+            // remove name from reviewData before adding review
+            const { name, ...reviewDataForDb } = reviewData;
+            await addReview(newMarkerRef.id, reviewDataForDb);
             
             toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
             return newMarkerRef.id;
         } catch (error: any) {
             console.error("Error creating marker with review:", error);
-            toast({
-                title: 'Ошибка',
-                description: error.message || 'Не удалось создать метку и отзыв.',
-                variant: 'destructive',
+            // This could be a Firestore error during marker creation.
+            const permissionError = new FirestorePermissionError({
+              path: `markers/[new_marker]`,
+              operation: 'create',
+              requestResourceData: { coords, reviewData },
             });
+            errorEmitter.emit('permission-error', permissionError);
         }
         return null;
     };
