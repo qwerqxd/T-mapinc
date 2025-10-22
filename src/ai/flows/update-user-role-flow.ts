@@ -3,17 +3,12 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { firebaseConfig } from '@/firebase/config';
+import { initializeFirebase } from '@/firebase';
 
-// Initialize a Firebase app specifically for this server-side flow.
-// This prevents the "calling client code from server" error.
-const serverApp = !getApps().find(app => app.name === 'server') 
-  ? initializeApp(firebaseConfig, 'server') 
-  : getApp('server');
-
-const firestore = getFirestore(serverApp);
-
+// We get the client-side firestore instance
+// Note: This flow runs on the server, but it uses client-style access
+// to interact with Firestore through the web SDKs, not the Admin SDK.
+const { firestore } = initializeFirebase();
 
 const UpdateUserRoleInputSchema = z.object({
   editorId: z.string().describe('The UID of the user performing the role change.'),
@@ -51,8 +46,6 @@ const updateUserRoleFlow = ai.defineFlow(
       const editorDoc = await getDoc(editorDocRef);
       
       if (!editorDoc.exists() || editorDoc.data()?.role !== 'admin') {
-        // This check will be enforced by security rules, but it's good to have it here
-        // to provide a clearer error message to the client.
         throw new Error('Permission denied: Only administrators can change user roles.');
       }
 
