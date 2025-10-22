@@ -6,15 +6,22 @@ import { useState } from 'react';
 import type { MarkerData, Review } from '@/lib/types';
 import AppHeader from '@/components/app-header';
 import ReviewsSidebar from '@/components/reviews-sidebar';
-import MapView from '@/components/map-view';
+import dynamic from 'next/dynamic';
 import MarkerReviewDialog from '@/components/marker-review-dialog';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, updateDoc, CollectionReference } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Skeleton } from '@/components/ui/skeleton';
+import { getLocationFromCoords } from '@/ai/flows/get-location-from-coords-flow';
+
+const MapView = dynamic(() => import('@/components/map-view'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full" />,
+});
 
 
 // Helper function to calculate distance between two coordinates in meters
@@ -35,8 +42,8 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 
 export default function Home() {
   const firestore = useFirestore();
-  const { data: markers, loading: markersLoading } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') : null);
-  const { data: reviews, loading: reviewsLoading } = useCollection<Review>(firestore ? collection(firestore, 'reviews') : null);
+  const { data: markers, loading: markersLoading } = useCollection<MarkerData>(firestore ? collection(firestore, 'markers') as CollectionReference<MarkerData> : null);
+  const { data: reviews, loading: reviewsLoading } = useCollection<Review>(firestore ? collection(firestore, 'reviews') as CollectionReference<Review> : null);
   
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [newMarkerCoords, setNewMarkerCoords] = useState<{
@@ -47,7 +54,6 @@ export default function Home() {
     center: [55.751244, 37.618423],
     zoom: 10,
   });
-  const [mapType, setMapType] = useState<'yandex#map' | 'yandex#satellite' | 'yandex#hybrid'>('yandex#map');
 
 
   const { user } = useAuth();
@@ -184,59 +190,54 @@ export default function Home() {
   };
 
 
-  const handleAddMarkerWithReview = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleAddMarkerWithReview = async (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
     if (!user || !newMarkerCoords || !firestore) return;
-    
-    const markersCollection = collection(firestore, 'markers');
-    const newMarkerRef = doc(markersCollection);
-    
-    const newMarker: Omit<MarkerData, 'id'> = {
-      createdBy: user.uid,
-      lat: newMarkerCoords.lat,
-      lng: newMarkerCoords.lng,
-    };
-    
-    const markerWithId: MarkerData = { ...newMarker, id: newMarkerRef.id };
-    
-    setDoc(newMarkerRef, newMarker).then(() => {
-        const reviewsCollection = collection(firestore, 'reviews');
-        const newReview = {
-          ...reviewData,
-          authorId: user.uid,
-          authorName: user.name || 'Анонимный пользователь',
-          authorAvatarUrl: user.avatarUrl || null,
-          markerId: markerWithId.id,
-          createdAt: serverTimestamp(),
-        };
-        addDoc(reviewsCollection, newReview).then(() => {
-            setNewMarkerCoords(null);
-            setSelectedMarkerId(markerWithId.id);
-            toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
-        }).catch(serverError => {
-            const permissionError = new FirestorePermissionError({
-                path: reviewsCollection.path,
-                operation: 'create',
-                requestResourceData: newReview,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            deleteDoc(newMarkerRef);
-        });
-    }).catch(serverError => {
-        const permissionError = new FirestorePermissionError({
-            path: newMarkerRef.path,
-            operation: 'create',
-            requestResourceData: newMarker,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
-  };
-  
-  const handleMapTypeChange = (newType: 'yandex#map' | 'yandex#satellite' | 'yandex#hybrid') => {
-    if (newType) {
-        setMapType(newType);
+
+    try {
+      const location = await getLocationFromCoords({ lat: newMarkerCoords.lat, lng: newMarkerCoords.lng });
+
+      const markersCollection = collection(firestore, 'markers');
+      const newMarkerRef = doc(markersCollection);
+
+      const newMarker: Omit<MarkerData, 'id'> = {
+        createdBy: user.uid,
+        lat: newMarkerCoords.lat,
+        lng: newMarkerCoords.lng,
+        name: location.name,
+      };
+
+      const markerWithId: MarkerData = { ...newMarker, id: newMarkerRef.id };
+
+      await setDoc(newMarkerRef, newMarker);
+
+      const reviewsCollection = collection(firestore, 'reviews');
+      const newReview = {
+        ...reviewData,
+        authorId: user.uid,
+        authorName: user.name || 'Анонимный пользователь',
+        authorAvatarUrl: user.avatarUrl || null,
+        markerId: markerWithId.id,
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(reviewsCollection, newReview);
+      
+      setNewMarkerCoords(null);
+      setSelectedMarkerId(markerWithId.id);
+      toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
+
+    } catch (error: any) {
+      console.error("Error creating marker with review:", error);
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось создать метку и отзыв.',
+        variant: 'destructive',
+      });
+      // Basic error handling for demo. In a real app, you might want more specific error handling.
+      // e.g. check for Firestore permission errors and emit them.
     }
   };
-
+  
   const selectedMarker = markers?.find((m) => m.id === selectedMarkerId);
 
   const closeDialogs = () => {
@@ -267,8 +268,6 @@ export default function Home() {
               markers={markers || []}
               onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
               onMapClick={handleMapClick}
-              mapType={mapType}
-              onMapTypeChange={handleMapTypeChange}
             />
           </div>
         </main>
