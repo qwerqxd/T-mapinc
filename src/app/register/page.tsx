@@ -35,7 +35,7 @@ export default function RegisterPage() {
     } else {
       toast({
         title: 'Ошибка регистрации',
-        description: result.error || 'Пользователь с таким email уже существует или произошла другая ошибка. Пожалуйста, попробуйте еще раз.',
+        description: result.error || 'Произошла неизвестная ошибка. Пожалуйста, попробуйте еще раз.',
         variant: 'destructive',
       });
     }
