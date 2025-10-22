@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { MapView } from '@/components/map-view';
-import { MarkerDetails } from '@/components/marker-details';
-import { MarkerForm } from '@/components/marker-form';
+import MapView from '@/components/map-view';
+import MarkerDetails from '@/components/marker-details';
+import MarkerForm from '@/components/marker-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useMarkers } from '@/hooks/use-markers';
