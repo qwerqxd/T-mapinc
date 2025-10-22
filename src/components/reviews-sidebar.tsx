@@ -37,10 +37,12 @@ export default function ReviewsSidebar({
   const [sortOption, setSortOption] = useState('most recent');
   const [selectedCountry, setSelectedCountry] = useState('all');
   const [selectedCity, setSelectedCity] = useState('all');
+  
+  const markersById = useMemo(() => new Map(markers.map(marker => [marker.id, marker])), [markers]);
 
   const countries = useMemo(() => {
     const countrySet = new Set(markers.map((m) => m.country).filter(Boolean));
-    return ['all', ...Array.from(countrySet)];
+    return ['all', ...Array.from(countrySet).sort()];
   }, [markers]);
 
   const cities = useMemo(() => {
@@ -53,7 +55,7 @@ export default function ReviewsSidebar({
         .map((m) => m.city)
         .filter(Boolean)
     );
-    return ['all', ...Array.from(citySet)];
+    return ['all', ...Array.from(citySet).sort()];
   }, [markers, selectedCountry]);
 
   const getReviewTimestamp = (createdAt: Review['createdAt']): number => {
@@ -71,11 +73,13 @@ export default function ReviewsSidebar({
 
 
   const filteredReviews = useMemo(() => {
-    const markersById = new Map(markers.map(marker => [marker.id, marker]));
-
-    let filtered = reviews.filter((review) =>
-      review.text.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    let filtered = reviews.filter((review) => {
+      const marker = markersById.get(review.markerId);
+      const searchText = searchTerm.toLowerCase();
+      const inMarker = marker && (marker.city?.toLowerCase().includes(searchText) || marker.country?.toLowerCase().includes(searchText));
+      const inReview = review.text.toLowerCase().includes(searchText) || review.authorName.toLowerCase().includes(searchText);
+      return inMarker || inReview;
+    });
 
     if (selectedCountry !== 'all') {
       filtered = filtered.filter(review => {
@@ -102,7 +106,13 @@ export default function ReviewsSidebar({
           return getReviewTimestamp(b.createdAt) - getReviewTimestamp(a.createdAt);
       }
     });
-  }, [reviews, markers, searchTerm, sortOption, selectedCountry, selectedCity]);
+  }, [reviews, markersById, searchTerm, sortOption, selectedCountry, selectedCity]);
+  
+  // Reset city filter when country changes
+  const handleCountryChange = (country: string) => {
+    setSelectedCountry(country);
+    setSelectedCity('all');
+  }
 
   return (
     <aside className="flex h-full flex-col border-r bg-card">
@@ -111,14 +121,14 @@ export default function ReviewsSidebar({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Поиск отзывов..."
+            placeholder="Поиск по тексту, автору, месту..."
             className="pl-10"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
-            <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+            <Select value={selectedCountry} onValueChange={handleCountryChange}>
                 <SelectTrigger><SelectValue placeholder="Страна" /></SelectTrigger>
                 <SelectContent>
                     {countries.map(country => (
@@ -163,7 +173,7 @@ export default function ReviewsSidebar({
                 onClick={() => onReviewSelect(review.markerId)}
                 className="cursor-pointer"
               >
-                <ReviewCard review={review} />
+                <ReviewCard review={review} marker={markersById.get(review.markerId)} />
               </div>
             ))
           ) : (

@@ -178,13 +178,13 @@ export default function MarkerReviewDialog({
   };
 
   const getMarkerTitle = () => {
-    if (isCreatingNewMarker) return "Новый отзыв";
+    if (isCreatingNewMarker) return "Новая метка";
     if (marker) {
-      const title = [marker.city, marker.country].filter(Boolean).join(', ');
-      return title || 'Отзывы о месте';
+        const title = [marker.city, marker.country].filter(Boolean).join(', ');
+        return title || 'Отзывы о месте';
     }
-    return 'Отзывы об этом месте';
-  }
+    return 'Отзывы о месте';
+}
 
   const getMarkerDescription = () => {
      if (isCreatingNewMarker) return "Оставьте первый отзыв об этом месте.";
@@ -209,7 +209,7 @@ export default function MarkerReviewDialog({
         <ScrollArea className="flex-1 pr-4 -mr-4">
           <div className="space-y-4 py-4">
             {reviews.length > 0 ? (
-              reviews.map((review) => <ReviewCard key={review.id} review={review} onEdit={() => setEditingReview(review)} onDelete={() => setDeletingReview(review)} />)
+              reviews.map((review) => <ReviewCard key={review.id} review={review} marker={marker} onEdit={() => setEditingReview(review)} onDelete={() => setDeletingReview(review)} />)
             ) : (
               <div className="text-sm text-muted-foreground text-center py-8">
                 <p>Нет отзывов. Будьте первым, кто оставит один!</p>
@@ -276,7 +276,7 @@ export default function MarkerReviewDialog({
                 )}
                 <Button onClick={handleSubmit} className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    {editingReview ? 'Сохранить изменения' : 'Отправить отзыв'}
+                    {editingReview ? 'Сохранить изменения' : isCreatingNewMarker ? 'Создать метку и отзыв' : 'Отправить отзыв'}
                 </Button>
                </DialogFooter>
             </div>
