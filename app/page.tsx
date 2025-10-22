@@ -40,6 +40,7 @@ export default function Home() {
         setSelectedMarkerId(null);
         setNewMarkerCoords(coords);
     } else {
+        console.log("User must be logged in to create a marker");
         // Optionally, show a toast message to the user
     }
   }, [user]);
