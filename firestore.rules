@@ -1,95 +1,93 @@
+/**
+ * @fileoverview Firestore Security Rules for the application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a user-ownership model for user profiles and reviews. Users can only
+ * read and write their own profile data. Reviews can be created, updated, and deleted only by
+ * the author. Markers are publicly readable, but creation is restricted to authenticated users,
+ * and updates/deletions are not permitted.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile data, with userId matching the Firebase auth UID.
+ * - /markers/{markerId}: Stores marker data.
+ * - /reviews/{reviewId}: Stores review data, with authorId indicating the review's author.
+ *
+ * Key Security Decisions:
+ * - Users can only manage their own profiles. Listing all users is disallowed.
+ * - Markers are publicly readable but cannot be updated or deleted. Only creation is allowed by authenticated users.
+ * - Reviews are owned by their authors and can only be modified or deleted by them.
+ * - No global admin roles are defined in this prototype.
+ *
+ * Denormalization for Authorization:
+ * - Reviews contain an `authorId` field, enabling easy validation of ownership.
+ *
+ * Structural Segregation:
+ * - No segregation is needed as there is no public vs. private data in the model
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profiles.
+     * @description Secures user profile data. Only the authenticated user can read or write their own profile.
      * @path /users/{userId}
-     * @allow (create) - If the user is signed in and the userId matches the authenticated user's ID.
-     * @allow (get, update, delete) - If the user is signed in and the userId matches the authenticated user's ID.
-     * @deny (create) - If the user is not signed in, or the userId does not match the authenticated user's ID.
-     * @deny (get, update, delete) - If the user is not signed in, or the userId does not match the authenticated user's ID.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) User with UID 'user_abc' can create their profile with matching ID.
+     * @allow (get, update, delete) User with UID 'user_abc' can read, update, or delete their own profile.
+     * @deny (create) User with UID 'user_abc' cannot create a profile with a mismatched ID 'user_xyz'.
+     * @deny (get, update, delete) User with UID 'user_xyz' cannot read, update, or delete user 'user_abc' profile.
+     * @deny (list) Listing all users is not allowed.
+     * @principle Enforces user-ownership for profile data.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      function isExistingOwner(userId) {
-          return isSignedIn() && isOwner(userId);
-      }
-      function isCreatingOwner(userId) {
-          return isSignedIn() && isOwner(userId);
-      }
-
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isCreatingOwner(userId);
-      allow update: if isExistingOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to map markers.
+     * @description Secures map markers. Markers are publicly readable, but creation is restricted to authenticated users. Updates and deletions are not allowed.
      * @path /markers/{markerId}
-     * @allow (create) - If the user is signed in. The 'createdBy' field must match the authenticated user's ID.
-     * @allow (get, list) - Public read access.
-     * @allow (update, delete) - If the user is signed in and the 'createdBy' field in the existing document matches the authenticated user's ID.
-     * @deny (create) - If the user is not signed in, or the 'createdBy' field does not match the authenticated user's ID.
-     * @deny (update, delete) - If the user is not signed in, or the 'createdBy' field does not match the authenticated user's ID.
-     * @principle Enforces document ownership for writes, allows public reads, and validates relational integrity on create.
+     * @allow (get, list) Any user can read the marker data.
+     * @allow (create) Any authenticated user can create a marker.
+     * @deny (update, delete) No one can update or delete a marker.
+     * @principle Allows public reads but restricts writes to authenticated users. Enforces immutability of markers after creation.
      */
     match /markers/{markerId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner() {
-        return resource.data.createdBy == request.auth.uid;
-      }
-      function isCreatingOwner() {
-        return request.resource.data.createdBy == request.auth.uid;
-      }
-       function isExistingOwner() {
-          return isSignedIn() && isOwner();
-      }
-
       allow get, list: if true;
-      allow create: if isSignedIn() && isCreatingOwner();
-      allow update: if isExistingOwner();
-      allow delete: if isExistingOwner();
+      allow create: if isSignedIn();
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Controls access to reviews.
+     * @description Secures reviews. Reviews are readable, and can only be created, updated, and deleted by their author.
      * @path /reviews/{reviewId}
-     * @allow (create) - If the user is signed in. The 'authorId' field must match the authenticated user's ID.
-     * @allow (get, list) - Public read access.
-     * @allow (update, delete) - If the user is signed in and the 'authorId' field in the existing document matches the authenticated user's ID.
-     * @deny (create) - If the user is not signed in, or the 'authorId' field does not match the authenticated user's ID.
-     * @deny (update, delete) - If the user is not signed in, or the 'authorId' does not match the authenticated user's ID.
-     * @principle Enforces document ownership for writes, allows public reads, and validates relational integrity on create.
+     * @allow (get, list) Any user can read reviews.
+     * @allow (create) User with UID 'user_abc' can create a review with authorId 'user_abc'.
+     * @allow (update, delete) User with UID 'user_abc' can update or delete a review they authored.
+     * @deny (create) User with UID 'user_xyz' cannot create a review with authorId 'user_abc'.
+     * @deny (update, delete) User with UID 'user_xyz' cannot update or delete a review authored by 'user_abc'.
+     * @principle Enforces document ownership for writes.
      */
     match /reviews/{reviewId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner() {
-        return resource.data.authorId == request.auth.uid;
-      }
-      function isCreatingOwner() {
-        return request.resource.data.authorId == request.auth.uid;
-      }
-      function isExistingOwner() {
-          return isSignedIn() && isOwner();
-      }
-
       allow get, list: if true;
-      allow create: if isSignedIn() && isCreatingOwner();
-      allow update: if isExistingOwner();
-      allow delete: if isExistingOwner();
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.authorId);
+      allow delete: if isExistingOwner(resource.data.authorId);
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
     }
   }
 }
