@@ -128,18 +128,18 @@ export default function MarkerReviewDialog({
               variant: 'destructive',
             });
           } else {
-            setNewMedia(prev => [...prev, { type: 'video', url: URL.createObjectURL(file), file: file }]);
+            setNewMedia((prev: ReviewMedia[]) => [...prev, { type: 'video', url: URL.createObjectURL(file), file: file }]);
           }
         };
         video.src = URL.createObjectURL(file);
       } else {
-        setNewMedia(prev => [...prev, { type: 'image', url: URL.createObjectURL(file), file: file }]);
+        setNewMedia((prev: ReviewMedia[]) => [...prev, { type: 'image', url: URL.createObjectURL(file), file: file }]);
       }
     });
   };
 
   const removeMedia = (url: string) => {
-    setNewMedia(prev => prev.filter(item => item.url !== url));
+    setNewMedia((prev: ReviewMedia[]) => prev.filter(item => item.url !== url));
   };
 
 
