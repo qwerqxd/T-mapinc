@@ -49,20 +49,16 @@
           "type": "number",
           "description": "The longitude of the marker."
         },
-        "country": {
+        "name": {
           "type": "string",
-          "description": "The country where the marker is located."
-        },
-        "city": {
-          "type": "string",
-          "description": "The city where the marker is located."
+          "description": "The name of the location of the marker."
         },
         "createdBy": {
           "type": "string",
           "description": "The UID of the user who created the marker."
         }
       },
-      "required": ["lat", "lng", "createdBy", "country", "city"]
+      "required": ["lat", "lng", "createdBy", "name"]
     },
     "Review": {
       "title": "Review",

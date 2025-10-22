@@ -35,29 +35,7 @@ export default function ReviewsSidebar({
 }: ReviewsSidebarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('most recent');
-  const [selectedCountry, setSelectedCountry] = useState('all');
-  const [selectedCity, setSelectedCity] = useState('all');
-
-  const countries = useMemo(() => {
-    const countrySet = new Set(markers.map((m) => m.country).filter(Boolean));
-    return ['all', ...Array.from(countrySet)];
-  }, [markers]);
-
-  const cities = useMemo(() => {
-    if (selectedCountry === 'all') {
-        const citySet = new Set(markers.map((m) => m.city).filter(Boolean));
-        return ['all', ...Array.from(citySet)];
-    }
-    const citySet = new Set(
-      markers
-        .filter(m => m.country === selectedCountry)
-        .map((m) => m.city)
-        .filter(Boolean)
-    );
-    return ['all', ...Array.from(citySet)];
-  }, [markers, selectedCountry]);
-
-
+  
   const getReviewTimestamp = (createdAt: Review['createdAt']): number => {
     if (!createdAt) return 0;
     if (createdAt instanceof Timestamp) {
@@ -74,8 +52,6 @@ export default function ReviewsSidebar({
 
 
   const filteredReviews = useMemo(() => {
-    const markersById = new Map(markers.map(marker => [marker.id, marker]));
-
     let filtered = reviews.filter((review) => {
       if (!review) return false;
         const searchText = searchTerm.toLowerCase();
@@ -86,20 +62,6 @@ export default function ReviewsSidebar({
   
         return inReview;
     });
-
-    if (selectedCountry !== 'all') {
-      filtered = filtered.filter(review => {
-        const marker = markersById.get(review.markerId);
-        return marker?.country === selectedCountry;
-      });
-    }
-
-    if (selectedCity !== 'all') {
-      filtered = filtered.filter(review => {
-        const marker = markersById.get(review.markerId);
-        return marker?.city === selectedCity;
-      });
-    }
 
     return filtered.sort((a, b) => {
       switch (sortOption) {
@@ -112,7 +74,7 @@ export default function ReviewsSidebar({
           return getReviewTimestamp(b.createdAt) - getReviewTimestamp(a.createdAt);
       }
     });
-  }, [reviews, markers, searchTerm, sortOption, selectedCountry, selectedCity]);
+  }, [reviews, searchTerm, sortOption]);
 
   return (
     <aside className="flex h-full flex-col border-r bg-card">
@@ -126,24 +88,6 @@ export default function ReviewsSidebar({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-            <Select value={selectedCountry} onValueChange={(value) => { setSelectedCountry(value); setSelectedCity('all'); }}>
-                <SelectTrigger><SelectValue placeholder="Страна" /></SelectTrigger>
-                <SelectContent>
-                    {countries.map(country => (
-                        <SelectItem key={country} value={country}>{country === 'all' ? 'Все страны' : country}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            <Select value={selectedCity} onValueChange={setSelectedCity} disabled={cities.length <= 1}>
-                <SelectTrigger><SelectValue placeholder="Город" /></SelectTrigger>
-                <SelectContent>
-                    {cities.map(city => (
-                        <SelectItem key={city} value={city}>{city === 'all' ? 'Все города' : city}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
         </div>
         <div className="flex items-center gap-2">
           <Select value={sortOption} onValueChange={setSortOption}>

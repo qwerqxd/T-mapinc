@@ -16,6 +16,7 @@ import { useFirestore } from '@/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getLocationFromCoords } from '@/ai/flows/get-location-from-coords-flow';
 
 const MapView = dynamic(() => import('@/components/map-view'), {
   ssr: false,
@@ -189,51 +190,52 @@ export default function Home() {
   };
 
 
-  const handleAddMarkerWithReview = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleAddMarkerWithReview = async (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
     if (!user || !newMarkerCoords || !firestore) return;
-    
-    const markersCollection = collection(firestore, 'markers');
-    const newMarkerRef = doc(markersCollection);
-    
-    const newMarker: Omit<MarkerData, 'id'> = {
-      createdBy: user.uid,
-      lat: newMarkerCoords.lat,
-      lng: newMarkerCoords.lng,
-    };
-    
-    const markerWithId: MarkerData = { ...newMarker, id: newMarkerRef.id };
-    
-    setDoc(newMarkerRef, newMarker).then(() => {
-        const reviewsCollection = collection(firestore, 'reviews');
-        const newReview = {
-          ...reviewData,
-          authorId: user.uid,
-          authorName: user.name || 'Анонимный пользователь',
-          authorAvatarUrl: user.avatarUrl || null,
-          markerId: markerWithId.id,
-          createdAt: serverTimestamp(),
-        };
-        addDoc(reviewsCollection, newReview).then(() => {
-            setNewMarkerCoords(null);
-            setSelectedMarkerId(markerWithId.id);
-            toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
-        }).catch(serverError => {
-            const permissionError = new FirestorePermissionError({
-                path: reviewsCollection.path,
-                operation: 'create',
-                requestResourceData: newReview,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            deleteDoc(newMarkerRef);
-        });
-    }).catch(serverError => {
-        const permissionError = new FirestorePermissionError({
-            path: newMarkerRef.path,
-            operation: 'create',
-            requestResourceData: newMarker,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
+
+    try {
+      const location = await getLocationFromCoords({ lat: newMarkerCoords.lat, lng: newMarkerCoords.lng });
+
+      const markersCollection = collection(firestore, 'markers');
+      const newMarkerRef = doc(markersCollection);
+
+      const newMarker: Omit<MarkerData, 'id'> = {
+        createdBy: user.uid,
+        lat: newMarkerCoords.lat,
+        lng: newMarkerCoords.lng,
+        name: location.name,
+      };
+
+      const markerWithId: MarkerData = { ...newMarker, id: newMarkerRef.id };
+
+      await setDoc(newMarkerRef, newMarker);
+
+      const reviewsCollection = collection(firestore, 'reviews');
+      const newReview = {
+        ...reviewData,
+        authorId: user.uid,
+        authorName: user.name || 'Анонимный пользователь',
+        authorAvatarUrl: user.avatarUrl || null,
+        markerId: markerWithId.id,
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(reviewsCollection, newReview);
+      
+      setNewMarkerCoords(null);
+      setSelectedMarkerId(markerWithId.id);
+      toast({ title: 'Успех', description: 'Новая метка и ваш отзыв были добавлены.' });
+
+    } catch (error: any) {
+      console.error("Error creating marker with review:", error);
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось создать метку и отзыв.',
+        variant: 'destructive',
+      });
+      // Basic error handling for demo. In a real app, you might want more specific error handling.
+      // e.g. check for Firestore permission errors and emit them.
+    }
   };
   
   const selectedMarker = markers?.find((m) => m.id === selectedMarkerId);
