@@ -29,8 +29,8 @@ import { FileImage, Video } from 'lucide-react';
 interface ReviewCardProps {
   review: Review;
   className?: string;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  onEdit?: (review: Review) => void;
+  onDelete?: (review: Review) => void;
 }
 
 export default function ReviewCard({ review, className, onEdit, onDelete }: ReviewCardProps) {
@@ -54,6 +54,16 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
   }
 
   const canModify = currentUser?.uid === review.authorId || currentUser?.role === 'admin';
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit?.(review);
+  }
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete?.(review);
+  }
 
   return (
     <Card className={`overflow-hidden transition-all hover:shadow-md ${className}`}>
@@ -111,7 +121,7 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleEdit}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -121,7 +131,7 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={onDelete}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={handleDelete}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>

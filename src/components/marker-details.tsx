@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -11,16 +11,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -36,6 +26,8 @@ interface MarkerDetailsProps {
   onUpdateReview: (review: Review, updatedData: { text: string; rating: number; media?: File[] }) => void;
   onDeleteReview: (review: Review) => void;
   onDeleteMarker: (markerId: string) => void;
+  editingReview: Review | null;
+  onCancelEdit: () => void;
 }
 
 export default function MarkerDetails({
@@ -47,12 +39,11 @@ export default function MarkerDetails({
   onUpdateReview,
   onDeleteReview,
   onDeleteMarker,
+  editingReview,
+  onCancelEdit,
 }: MarkerDetailsProps) {
   const { user } = useAuth();
-  const [editingReview, setEditingReview] = useState<Review | null>(null);
-  const [deletingReview, setDeletingReview] = useState<Review | null>(null);
-
-
+  
   const handleAddSubmit = (reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
     if (marker) {
       onAddReview(marker.id, reviewData);
@@ -62,38 +53,28 @@ export default function MarkerDetails({
   const handleEditSubmit = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
     if (editingReview) {
       onUpdateReview(editingReview, reviewData);
-      setEditingReview(null);
     }
   };
-
-  const handleConfirmDelete = () => {
-    if (deletingReview) {
-      onDeleteReview(deletingReview);
-      setDeletingReview(null);
-    }
-  };
-
 
   const getMarkerTitle = () => {
-    if (!marker) return '';
-    return marker.name || "Отзывы о месте";
+    if (!marker && !editingReview) return '';
+    const currentMarker = marker || (reviews.find(r => r.id === editingReview?.id)?.markerId ? { name: reviews.find(r => r.id === editingReview?.id)?.text } : null);
+    if (!currentMarker) return "Редактирование отзыва";
+    return currentMarker.name || "Отзывы о месте";
   }
 
   const getMarkerDescription = () => {
+     if (editingReview) return "Редактируйте свой отзыв ниже.";
      if (reviews.length > 0) {
          return "Посмотрите, что говорят другие, и добавьте свой отзыв.";
      }
      return "Об этом месте еще нет отзывов. Будьте первым!";
   }
+  
+  const isFormForEditing = !!editingReview;
 
   return (
-    <>
-    <Dialog open={isOpen} onOpenChange={(open) => {
-        if (!open) {
-            setEditingReview(null);
-        }
-        onOpenChange(open);
-    }}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{getMarkerTitle()}</DialogTitle>
@@ -109,12 +90,12 @@ export default function MarkerDetails({
                 <ReviewCard 
                   key={review.id} 
                   review={review} 
-                  onEdit={() => setEditingReview(review)} 
-                  onDelete={() => setDeletingReview(review)} 
+                  onEdit={() => onOpenChange(false)} // Should be handled by parent now
+                  onDelete={onDeleteReview} 
                 />
               ))
             ) : (
-              !editingReview && (
+              !isFormForEditing && (
                 <div className="text-sm text-muted-foreground text-center py-8">
                   <p>Нет отзывов. Будьте первым, кто оставит один!</p>
                 </div>
@@ -126,32 +107,16 @@ export default function MarkerDetails({
           <>
             <Separator />
             <MarkerForm
-              isEditing={!!editingReview}
-              initialData={editingReview || undefined}
-              onFormSubmit={editingReview ? handleEditSubmit : handleAddSubmit}
-              onCancelEdit={() => setEditingReview(null)}
-              isOpen={true} 
-              onOpenChange={()=>{}} 
+              isEditing={isFormForEditing}
+              initialData={isFormForEditing ? editingReview : undefined}
+              onFormSubmit={isFormForEditing ? handleEditSubmit : handleAddSubmit}
+              onCancelEdit={onCancelEdit}
+              isOpen={true} // It's part of a dialog, so it's always "open" in its context
+              onOpenChange={()=>{}} // Managed by parent
             />
           </>
         )}
       </DialogContent>
     </Dialog>
-
-    <AlertDialog open={!!deletingReview} onOpenChange={(open) => !open && setDeletingReview(null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
-            <AlertDialogDescription>
-                Это действие необратимо. Ваш отзыв будет удален навсегда.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Удалить</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-  </>
   );
 }

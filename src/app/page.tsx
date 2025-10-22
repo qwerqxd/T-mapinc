@@ -7,8 +7,18 @@ import MarkerDetails from '@/components/marker-details';
 import MarkerForm from '@/components/marker-form';
 import { useMarkers } from '@/hooks/use-markers';
 import { useAuth } from '@/contexts/auth-context';
-import type { Review } from '@/lib/types';
+import type { Review, ReviewMedia } from '@/lib/types';
 import ReviewsSidebar from '@/components/reviews-sidebar';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 
 export default function Home() {
@@ -25,6 +35,10 @@ export default function Home() {
   });
 
   const { markers, reviews, loading, error, addMarkerWithReview, addReview, updateReview, deleteReview, deleteMarker } = useMarkers();
+  
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
+  const [deletingReview, setDeletingReview] = useState<Review | null>(null);
+  const [isMarkerDetailsOpen, setIsMarkerDetailsOpen] = useState(false);
 
 
   const selectedMarker = useMemo(() => 
@@ -38,10 +52,10 @@ export default function Home() {
   const handleMapClick = useCallback((coords: { lat: number; lng: number }) => {
     if (user) {
         setSelectedMarkerId(null);
+        setIsMarkerDetailsOpen(false);
         setNewMarkerCoords(coords);
     } else {
         console.log("User must be logged in to create a marker");
-        // Optionally, show a toast message to the user
     }
   }, [user]);
 
@@ -50,6 +64,7 @@ export default function Home() {
       const newMarkerId = await addMarkerWithReview(newMarkerCoords, data);
       if (newMarkerId) {
         setSelectedMarkerId(newMarkerId);
+        setIsMarkerDetailsOpen(true);
       }
       setNewMarkerCoords(null); 
     }
@@ -61,29 +76,53 @@ export default function Home() {
 
   const handleUpdateReview = async (review: Review, updatedData: { text: string; rating: number; media?: File[] }) => {
     await updateReview(review, updatedData);
+    setEditingReview(null);
   }
 
-  const handleDeleteReview = async (review: Review) => {
-      await deleteReview(review);
+  const handleDeleteReview = async () => {
+      if (deletingReview) {
+        await deleteReview(deletingReview);
+        setDeletingReview(null);
+      }
   }
 
 
   const handleMarkerClick = (markerId: string) => {
     setNewMarkerCoords(null);
     setSelectedMarkerId(markerId);
+    setIsMarkerDetailsOpen(true);
     const marker = markers.find(m => m.id === markerId);
     if(marker) {
       setMapState(prev => ({...prev, center: [marker.lat, marker.lng]}))
     }
   };
-
+  
   const handleCloseDetails = () => {
     setSelectedMarkerId(null);
+    setIsMarkerDetailsOpen(false);
+    setEditingReview(null);
+  };
+  
+  const handleEditReview = (review: Review) => {
+    setEditingReview(review);
+    if (review.markerId !== selectedMarkerId) {
+        setSelectedMarkerId(review.markerId);
+    }
+    setIsMarkerDetailsOpen(true);
   };
 
 
   return (
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_384px] h-[calc(100vh-4rem)]">
+      <div className="grid grid-cols-1 md:grid-cols-[384px_1fr] h-[calc(100vh-4rem)]">
+        <div className="hidden md:flex md:flex-col">
+           <ReviewsSidebar 
+              reviews={reviews} 
+              markers={markers} 
+              onReviewSelect={handleMarkerClick} 
+              onEditReview={handleEditReview}
+              onDeleteReview={setDeletingReview}
+            />
+        </div>
         <div className="relative">
             <MapView
               mapState={mapState}
@@ -93,20 +132,19 @@ export default function Home() {
               selectedMarkerId={selectedMarkerId}
             />
         </div>
-        <div className="hidden md:flex md:flex-col">
-           <ReviewsSidebar reviews={reviews} markers={markers} onReviewSelect={handleMarkerClick} />
-        </div>
         
-        {selectedMarker && (
+        {(selectedMarker || editingReview) && (
           <MarkerDetails
             marker={selectedMarker}
             reviews={reviewsForSelectedMarker}
-            isOpen={!!selectedMarkerId}
+            isOpen={isMarkerDetailsOpen}
             onOpenChange={(open) => !open && handleCloseDetails()}
             onAddReview={handleAddReview}
             onUpdateReview={handleUpdateReview}
-            onDeleteReview={handleDeleteReview}
+            onDeleteReview={setDeletingReview}
             onDeleteMarker={deleteMarker}
+            editingReview={editingReview}
+            onCancelEdit={() => setEditingReview(null)}
           />
         )}
 
@@ -118,6 +156,21 @@ export default function Home() {
             onMarkerCreate={handleCreateMarkerWithReview}
           />
         )}
+        
+        <AlertDialog open={!!deletingReview} onOpenChange={(open) => !open && setDeletingReview(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Это действие необратимо. Ваш отзыв будет удален навсегда.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteReview} className="bg-destructive hover:bg-destructive/90">Удалить</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </div>
   );
 }
