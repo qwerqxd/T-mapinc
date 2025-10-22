@@ -13,7 +13,12 @@ import {
 import { AlertTriangle } from 'lucide-react';
 
 export default function PreAlphaWarning() {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    setIsOpen(true);
+  }, []);
+
 
   const handleAcknowledge = () => {
     setIsOpen(false);
