@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { updateUserRole } from '@/ai/flows/update-user-role-flow';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -37,7 +37,6 @@ export default function AdminUsersPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   // Only fetch users if the current user is confirmed to be an admin.
@@ -68,28 +67,26 @@ export default function AdminUsersPage() {
     }
     
     setUpdatingUserId(targetUser.uid);
-    startTransition(async () => {
-      try {
-        await updateUserRole({
-          editorId: currentUser.uid,
-          targetUserId: targetUser.uid,
-          newRole,
-        });
-        toast({
-          title: 'Успех',
-          description: `Роль пользователя ${targetUser.name} изменена на ${newRole}.`,
-        });
-      } catch (error: any) {
-        console.error('Failed to update user role:', error);
-        toast({
-          title: 'Ошибка',
-          description: error.message || 'Не удалось обновить роль пользователя.',
-          variant: 'destructive',
-        });
-      } finally {
-        setUpdatingUserId(null);
-      }
-    });
+    try {
+      await updateUserRole({
+        editorId: currentUser.uid,
+        targetUserId: targetUser.uid,
+        newRole,
+      });
+      toast({
+        title: 'Успех',
+        description: `Роль пользователя ${targetUser.name} изменена на ${newRole}.`,
+      });
+    } catch (error: any) {
+      console.error('Failed to update user role:', error);
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось обновить роль пользователя.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingUserId(null);
+    }
   };
 
   if (!isReady || usersLoading || authLoading) {
@@ -173,7 +170,7 @@ export default function AdminUsersPage() {
                     <Select
                       value={user.role}
                       onValueChange={(newRole: 'admin' | 'user') => handleRoleChange(user, newRole)}
-                      disabled={isPending}
+                      disabled={!!updatingUserId}
                     >
                       <SelectTrigger className="w-[120px]">
                         <SelectValue placeholder="Роль" />
