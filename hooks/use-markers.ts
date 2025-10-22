@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -10,14 +9,14 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { MarkerData, Review, ReviewMedia } from '@/lib/types';
 import { uploadFile, deleteFile } from '@/firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
 
 
 async function processMedia(userId: string, markerId: string, mediaItems: ReviewMedia[]): Promise<ReviewMedia[]> {
     if (!mediaItems) return [];
     const uploadPromises = mediaItems.map(async (item) => {
         if (item.file && !item.storagePath) {
-            const storagePath = `reviews/${userId}/${markerId}/${uuidv4()}-${item.file.name}`;
+            const fileId = Math.random().toString(36).substring(2);
+            const storagePath = `reviews/${userId}/${markerId}/${fileId}-${item.file.name}`;
             const { downloadURL } = await uploadFile(item.file, storagePath);
             return {
                 type: item.type,
