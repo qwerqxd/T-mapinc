@@ -29,8 +29,8 @@ import { FileImage, Video } from 'lucide-react';
 interface ReviewCardProps {
   review: Review;
   className?: string;
-  onEdit?: (review: Review) => void;
-  onDelete?: (review: Review) => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 export default function ReviewCard({ review, className, onEdit, onDelete }: ReviewCardProps) {
@@ -53,21 +53,7 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
     });
   }
 
-  const canModify = currentUser && (currentUser.uid === review.authorId || currentUser.role === 'admin');
-
-  const handleEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onEdit) {
-      onEdit(review);
-    }
-  }
-
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onDelete) {
-      onDelete(review);
-    }
-  }
+  const canModify = currentUser?.uid === review.authorId || currentUser?.role === 'admin';
 
   return (
     <Card className={`overflow-hidden transition-all hover:shadow-md ${className}`}>
@@ -125,7 +111,7 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleEdit}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -135,7 +121,7 @@ export default function ReviewCard({ review, className, onEdit, onDelete }: Revi
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={handleDelete}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={onDelete}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>

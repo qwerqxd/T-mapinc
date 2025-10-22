@@ -45,7 +45,7 @@ export default function Home() {
     }
   }, [user]);
 
-  const handleCreateMarkerWithReview = async (data: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & {name?:string}) => {
+  const handleCreateMarkerWithReview = async (data: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & {name?:string; media?: File[]}) => {
     if (newMarkerCoords) {
       const newMarkerId = await addMarkerWithReview(newMarkerCoords, data);
       if (newMarkerId) {
@@ -55,11 +55,11 @@ export default function Home() {
     }
   };
 
-  const handleAddReview = async (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'>) => {
+  const handleAddReview = async (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
       await addReview(markerId, reviewData);
   }
 
-  const handleUpdateReview = async (review: Review, updatedData: { text: string; rating: number; media: ReviewMedia[] }) => {
+  const handleUpdateReview = async (review: Review, updatedData: { text: string; rating: number; media?: File[] }) => {
     await updateReview(review, updatedData);
   }
 

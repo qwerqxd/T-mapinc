@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import type { MarkerData, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -10,12 +11,21 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import ReviewCard from './review-card';
 import MarkerForm from './marker-form';
-import { useMemo } from 'react';
 
 interface MarkerDetailsProps {
   marker: MarkerData | null | undefined;
@@ -25,9 +35,7 @@ interface MarkerDetailsProps {
   onAddReview: (markerId: string, reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => void;
   onUpdateReview: (review: Review, updatedData: { text: string; rating: number; media?: File[] }) => void;
   onDeleteReview: (review: Review) => void;
-  editingReview: Review | null;
-  onCancelEdit: () => void;
-  onEditReview: (review: Review) => void;
+  onDeleteMarker: (markerId: string) => void;
 }
 
 export default function MarkerDetails({
@@ -38,12 +46,13 @@ export default function MarkerDetails({
   onAddReview,
   onUpdateReview,
   onDeleteReview,
-  editingReview,
-  onCancelEdit,
-  onEditReview,
+  onDeleteMarker,
 }: MarkerDetailsProps) {
   const { user } = useAuth();
-  
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
+  const [deletingReview, setDeletingReview] = useState<Review | null>(null);
+
+
   const handleAddSubmit = (reviewData: Omit<Review, 'id' | 'createdAt' | 'authorId' | 'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
     if (marker) {
       onAddReview(marker.id, reviewData);
@@ -53,27 +62,38 @@ export default function MarkerDetails({
   const handleEditSubmit = (reviewData: Omit<Review, 'id'|'createdAt'|'authorId'|'markerId' | 'authorName' | 'authorAvatarUrl'> & { media?: File[] }) => {
     if (editingReview) {
       onUpdateReview(editingReview, reviewData);
+      setEditingReview(null);
     }
   };
 
-  const isFormForEditing = !!editingReview;
+  const handleConfirmDelete = () => {
+    if (deletingReview) {
+      onDeleteReview(deletingReview);
+      setDeletingReview(null);
+    }
+  };
+
 
   const getMarkerTitle = () => {
     if (!marker) return '';
-    if (isFormForEditing) return `Редактирование отзыва для "${marker.name}"`;
     return marker.name || "Отзывы о месте";
   }
 
   const getMarkerDescription = () => {
-     if (isFormForEditing) return "Отредактируйте детали вашего отзыва ниже.";
      if (reviews.length > 0) {
          return "Посмотрите, что говорят другие, и добавьте свой отзыв.";
      }
      return "Об этом месте еще нет отзывов. Будьте первым!";
   }
-  
+
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+        if (!open) {
+            setEditingReview(null);
+        }
+        onOpenChange(open);
+    }}>
       <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{getMarkerTitle()}</DialogTitle>
@@ -84,46 +104,54 @@ export default function MarkerDetails({
         <Separator />
         <ScrollArea className="flex-1 pr-4 -mr-4">
           <div className="space-y-4 py-4">
-            {!isFormForEditing && reviews.length > 0 ? (
+            {reviews.length > 0 ? (
               reviews.map((review) => (
                 <ReviewCard 
                   key={review.id} 
                   review={review} 
-                  onEdit={onEditReview}
-                  onDelete={onDeleteReview} 
+                  onEdit={() => setEditingReview(review)} 
+                  onDelete={() => setDeletingReview(review)} 
                 />
               ))
-            ) : null}
-            
-            {!isFormForEditing && reviews.length === 0 && (
+            ) : (
+              !editingReview && (
                 <div className="text-sm text-muted-foreground text-center py-8">
                   <p>Нет отзывов. Будьте первым, кто оставит один!</p>
                 </div>
+              )
             )}
-
-             {isFormForEditing && editingReview && (
-                <ReviewCard 
-                  review={editingReview} 
-                  onEdit={onEditReview}
-                  onDelete={onDeleteReview}
-                />
-             )}
           </div>
         </ScrollArea>
         {user && (
           <>
             <Separator />
             <MarkerForm
-              isEditing={isFormForEditing}
-              initialData={editingReview ?? undefined}
-              onFormSubmit={isFormForEditing ? handleEditSubmit : handleAddSubmit}
-              onCancelEdit={onCancelEdit}
-              isOpen={true}
-              onOpenChange={()=>{}}
+              isEditing={!!editingReview}
+              initialData={editingReview || undefined}
+              onFormSubmit={editingReview ? handleEditSubmit : handleAddSubmit}
+              onCancelEdit={() => setEditingReview(null)}
+              isOpen={true} 
+              onOpenChange={()=>{}} 
             />
           </>
         )}
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!deletingReview} onOpenChange={(open) => !open && setDeletingReview(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+            <AlertDialogDescription>
+                Это действие необратимо. Ваш отзыв будет удален навсегда.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Удалить</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+  </>
   );
 }

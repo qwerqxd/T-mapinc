@@ -20,8 +20,6 @@ interface ReviewsSidebarProps {
   reviews: Review[];
   markers: MarkerData[];
   onReviewSelect: (markerId: string) => void;
-  onEditReview: (review: Review) => void;
-  onDeleteReview: (review: Review) => void;
 }
 
 const sortOptions = {
@@ -34,8 +32,6 @@ export default function ReviewsSidebar({
   reviews,
   markers,
   onReviewSelect,
-  onEditReview,
-  onDeleteReview,
 }: ReviewsSidebarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('most recent');
@@ -121,11 +117,7 @@ export default function ReviewsSidebar({
                 onClick={() => onReviewSelect(review.markerId)}
                 className="cursor-pointer"
               >
-                <ReviewCard 
-                  review={review}
-                  onEdit={onEditReview}
-                  onDelete={onDeleteReview}
-                />
+                <ReviewCard review={review} />
               </div>
             ))
           ) : (
