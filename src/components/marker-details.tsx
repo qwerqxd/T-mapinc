@@ -58,11 +58,6 @@ export default function MarkerDetails({
 
   const isFormForEditing = !!editingReview;
 
-  const currentMarker = useMemo(() => {
-    return isFormForEditing && editingReview ? reviews.find(r => r.id === editingReview.id) ? marker : null : marker;
-  }, [isFormForEditing, marker, editingReview, reviews]);
-
-
   const getMarkerTitle = () => {
     if (!marker) return '';
     if (isFormForEditing) return `Редактирование отзыва для "${marker.name}"`;
@@ -107,7 +102,11 @@ export default function MarkerDetails({
             )}
 
              {isFormForEditing && editingReview && (
-                <ReviewCard review={editingReview} />
+                <ReviewCard 
+                  review={editingReview} 
+                  onEdit={onEditReview}
+                  onDelete={onDeleteReview}
+                />
              )}
           </div>
         </ScrollArea>
