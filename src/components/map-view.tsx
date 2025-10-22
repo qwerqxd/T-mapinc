@@ -1,27 +1,43 @@
 
 'use client';
 
-import { Map, Placemark } from '@pbe/react-yandex-maps';
-import { memo } from 'react';
+import { Map, Placemark, useYMaps } from '@pbe/react-yandex-maps';
+import { memo, useEffect, useRef } from 'react';
 
 interface MapViewProps {
   markers: { id: string; lat: number; lng: number }[];
   onMarkerClick: (markerId: string) => void;
   onMapClick: (coords: { lat: number; lng: number }) => void;
   mapState: { center: [number, number], zoom: number };
+  selectedMarkerId?: string | null;
 }
 
 function MapView({
   markers,
   onMarkerClick,
   onMapClick,
-  mapState
+  mapState,
+  selectedMarkerId,
 }: MapViewProps) {
+  const ymaps = useYMaps(['Map']);
+  const mapRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (ymaps && mapRef.current) {
+        mapRef.current.setCenter(mapState.center, mapState.zoom, {
+            checkZoomRange: true,
+            duration: 300,
+        });
+    }
+  }, [mapState, ymaps]);
+
+
   return (
     <Map
       width="100%"
       height="100%"
-      state={mapState}
+      defaultState={mapState}
+      instanceRef={mapRef}
       onClick={(e: any) => {
         const coords = e.get('coords');
         if (coords) {
@@ -38,7 +54,7 @@ function MapView({
             onMarkerClick(marker.id);
           }}
           options={{
-            preset: 'islands#blueDotIcon',
+            preset: marker.id === selectedMarkerId ? 'islands#redDotIcon' : 'islands#blueDotIcon',
           }}
         />
       ))}

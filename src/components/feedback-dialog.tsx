@@ -35,17 +35,17 @@ export function FeedbackDialog() {
           <p className="text-sm text-muted-foreground">
             <strong>Email:</strong>{' '}
             <a
-              href="mailto:support@tmapinc.com"
+              href="mailto:support@t-mapinc.ru"
               className="text-primary hover:underline"
             >
-              support@tmapinc.com
+              support@t-mapinc.ru
             </a>
           </p>
           <p className="text-sm text-muted-foreground">
             Вы также можете оставить свой отзыв, заполнив Google Форму:
           </p>
           <Button asChild className="w-full">
-            <Link href="/#google-form-link-placeholder" target="_blank" rel="noopener noreferrer">
+            <Link href="https://docs.google.com/forms/d/e/1FAIpQLSci6NFXlo8_FZI-1XQLIXnyVeRP4CEHpYDtMKouFfiJKqmfrA/viewform?usp=header" target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Перейти к форме
             </Link>

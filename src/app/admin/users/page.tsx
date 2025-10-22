@@ -3,7 +3,7 @@
 import { useAuth } from '@/contexts/auth-context';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, type CollectionReference } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 import { AlertTriangle, Shield, User as UserIcon, Loader2 } from 'lucide-react';
 import {
@@ -41,7 +41,7 @@ export default function AdminUsersPage() {
 
   // Only fetch users if the current user is confirmed to be an admin.
   const { data: users, loading: usersLoading } = useCollection<User>(
-    isReady && firestore ? collection(firestore, 'users') : null
+    isReady && firestore ? (collection(firestore, 'users') as CollectionReference<User>) : null
   );
 
   const { toast } = useToast();
