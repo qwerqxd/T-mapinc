@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Map, Placemark } from '@pbe/react-yandex-maps';

@@ -189,11 +189,14 @@ export default function Home() {
     
     const markersCollection = collection(firestore, 'markers');
     const newMarkerRef = doc(markersCollection);
-    const newMarker: Omit<MarkerData, 'id'> & {id: string} = {
+    
+    const newMarker: MarkerData = {
       id: newMarkerRef.id,
       createdBy: user.uid,
       lat: newMarkerCoords.lat,
       lng: newMarkerCoords.lng,
+      country: '', // This will be populated by a geocoder later
+      city: '',    // This will be populated by a geocoder later
     };
     
     setDoc(newMarkerRef, newMarker).then(() => {
