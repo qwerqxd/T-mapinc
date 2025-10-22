@@ -70,6 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth, firestore]);
   
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -134,6 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       await setDoc(userDocRef, userData);
       
+      // onAuthStateChanged will be triggered automatically and will handle loading state
       return { success: true };
 
     } catch (error: any) {
