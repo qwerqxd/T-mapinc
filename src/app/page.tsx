@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -7,8 +8,9 @@ import { MarkerForm } from '@/components/marker-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useMarkers } from '@/hooks/use-markers';
-import { Marker } from '@/lib/types';
+import { MarkerData } from '@/lib/types';
 import { Search, Plus, Filter } from 'lucide-react';
+import { YMaps } from '@pbe/react-yandex-maps';
 
 export default function Home() {
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
@@ -17,7 +19,6 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [categories, setCategories] = useState<string[]>([]);
   
-  // ИСПРАВЛЕНИЕ: Явно указать тип для center как [number, number]
   const [mapState, setMapState] = useState<{
     center: [number, number];
     zoom: number;
@@ -26,56 +27,28 @@ export default function Home() {
     zoom: 10
   });
 
-  const { markers, loading, error, createMarker, updateMarker, deleteMarker } = useMarkers();
+  const { markers, loading, error, addMarkerWithReview, updateReview, deleteReview, reviews } = useMarkers();
 
-  // Фильтрация маркеров по поисковому запросу и категории
   const filteredMarkers = markers.filter(marker => {
-    const matchesSearch = marker.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         marker.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || marker.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const markerName = marker.name || '';
+    const matchesSearch = markerName.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
   });
 
-  // Получение уникальных категорий
-  useEffect(() => {
-    const uniqueCategories = Array.from(new Set(markers.map(marker => marker.category).filter(Boolean)));
-    setCategories(uniqueCategories);
-  }, [markers]);
-
   const selectedMarker = selectedMarkerId ? markers.find(m => m.id === selectedMarkerId) : null;
+  const selectedMarkerReviews = selectedMarkerId ? reviews.filter(r => r.markerId === selectedMarkerId) : [];
+  
+  const [newMarkerCoords, setNewMarkerCoords] = useState<{lat: number, lng: number} | null>(null);
 
-  const handleMapClick = useCallback((coordinates: [number, number]) => {
-    if (isCreatingMarker) {
-      setIsCreatingMarker(false);
-      // Здесь можно открыть форму создания маркера с предзаполненными координатами
-      console.log('Создание маркера по координатам:', coordinates);
-    }
-  }, [isCreatingMarker]);
 
-  const handleCreateMarker = async (markerData: Omit<Marker, 'id' | 'createdAt' | 'updatedAt'>) => {
-    try {
-      await createMarker(markerData);
-      setIsCreatingMarker(false);
-    } catch (error) {
-      console.error('Ошибка при создании маркера:', error);
-    }
-  };
+  const handleMapClick = useCallback((coords: {lat: number, lng: number}) => {
+      setNewMarkerCoords(coords);
+  }, []);
 
-  const handleUpdateMarker = async (markerId: string, markerData: Partial<Marker>) => {
-    try {
-      await updateMarker(markerId, markerData);
-      setSelectedMarkerId(null);
-    } catch (error) {
-      console.error('Ошибка при обновлении маркера:', error);
-    }
-  };
-
-  const handleDeleteMarker = async (markerId: string) => {
-    try {
-      await deleteMarker(markerId);
-      setSelectedMarkerId(null);
-    } catch (error) {
-      console.error('Ошибка при удалении маркера:', error);
+  const handleCreateMarker = async (reviewData: Omit<any, 'id' | 'createdAt' | 'updatedAt'| 'authorId' | 'markerId'>) => {
+    if (newMarkerCoords) {
+      await addMarkerWithReview(newMarkerCoords, reviewData);
+      setNewMarkerCoords(null);
     }
   };
 
@@ -90,63 +63,30 @@ export default function Home() {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg text-red-600">Ошибка: {error}</div>
+        <div className="text-lg text-red-600">Ошибка: {error.message}</div>
       </div>
     );
   }
 
   return (
     <div className="flex h-screen bg-background">
-      {/* Боковая панель */}
-      <div className="w-96 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="p-6 space-y-6">
-          {/* Заголовок и кнопка добавления */}
+      <div className="w-96 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Карта маркеров</h1>
-            <Button
-              onClick={() => setIsCreatingMarker(!isCreatingMarker)}
-              variant={isCreatingMarker ? "destructive" : "default"}
-              size="sm"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              {isCreatingMarker ? 'Отмена' : 'Добавить'}
-            </Button>
+            <h1 className="text-2xl font-bold">Карта отзывов</h1>
           </div>
 
-          {/* Поиск */}
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Поиск маркеров..."
+              placeholder="Поиск по названию..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
             />
           </div>
-
-          {/* Фильтр по категориям */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Категория</span>
-            </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full p-2 border rounded-md bg-background"
-            >
-              <option value="all">Все категории</option>
-              {categories.map(category => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Список маркеров */}
+          
           <div className="space-y-3">
-            <h3 className="font-semibold">Маркеры ({filteredMarkers.length})</h3>
+            <h3 className="font-semibold">Метки ({filteredMarkers.length})</h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {filteredMarkers.map(marker => (
                 <div
@@ -158,66 +98,60 @@ export default function Home() {
                   }`}
                   onClick={() => setSelectedMarkerId(marker.id)}
                 >
-                  <div className="font-medium">{marker.title}</div>
-                  {marker.category && (
-                    <div className="text-sm text-muted-foreground">{marker.category}</div>
-                  )}
+                  <div className="font-medium">{marker.name}</div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    {new Date(marker.createdAt).toLocaleDateString('ru-RU')}
+                    Нажмите, чтобы увидеть отзывы
                   </div>
                 </div>
               ))}
               {filteredMarkers.length === 0 && (
                 <div className="text-center text-muted-foreground py-8">
-                  {markers.length === 0 ? 'Маркеры не найдены' : 'Ничего не найдено'}
+                  {markers.length === 0 ? 'Меток пока нет' : 'Ничего не найдено'}
                 </div>
               )}
             </div>
           </div>
-
-          {/* Подсказка для режима создания */}
-          {isCreatingMarker && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                Нажмите на карту, чтобы выбрать место для нового маркера
+                Нажмите на карту, чтобы выбрать место для нового отзыва.
               </p>
             </div>
-          )}
-        </div>
       </div>
 
-      {/* Основная область с картой */}
       <div className="flex-1 flex flex-col">
         <div className="flex-1 relative">
           <div className="absolute inset-0 bg-muted/30">
-            {/* ИСПРАВЛЕНИЕ: mapState теперь имеет правильный тип */}
-            <MapView
-              mapState={mapState}
-              markers={filteredMarkers}
-              onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
-              onMapClick={handleMapClick}
-              onMapStateChange={setMapState}
-            />
+            <YMaps query={{ apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY, lang: 'ru_RU' }}>
+              <MapView
+                mapState={mapState}
+                markers={filteredMarkers}
+                onMarkerClick={(markerId) => setSelectedMarkerId(markerId)}
+                onMapClick={handleMapClick}
+              />
+            </YMaps>
           </div>
         </div>
       </div>
 
-      {/* Детали маркера */}
       {selectedMarker && (
         <MarkerDetails
           marker={selectedMarker}
-          onClose={() => setSelectedMarkerId(null)}
-          onEdit={(markerData) => handleUpdateMarker(selectedMarker.id, markerData)}
-          onDelete={() => handleDeleteMarker(selectedMarker.id)}
+          reviews={selectedMarkerReviews}
+          isOpen={!!selectedMarker}
+          onOpenChange={(open) => !open && setSelectedMarkerId(null)}
+          onAddReview={addReview}
+          onUpdateReview={updateReview}
+          onDeleteReview={deleteReview}
+          onDeleteMarker={() => {}} // This should be handled inside useMarkers now
         />
       )}
 
-      {/* Форма создания маркера */}
-      {isCreatingMarker && (
+      {newMarkerCoords && (
         <MarkerForm
-          onSubmit={handleCreateMarker}
-          onCancel={() => setIsCreatingMarker(false)}
-          initialCoordinates={mapState.center}
+          coords={newMarkerCoords}
+          isOpen={!!newMarkerCoords}
+          onOpenChange={(open) => !open && setNewMarkerCoords(null)}
+          onMarkerCreate={handleCreateMarker}
         />
       )}
     </div>
