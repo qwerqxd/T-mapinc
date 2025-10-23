@@ -72,29 +72,27 @@ export default function AdminUsersPage() {
     setUpdatingUserId(targetUser.uid);
     const targetUserRef = doc(firestore, 'users', targetUser.uid);
     
-    updateDoc(targetUserRef, { role: newRole })
-      .then(() => {
-        toast({
-          title: 'Успех',
-          description: `Роль пользователя ${targetUser.name} изменена на ${newRole}.`,
-        });
-      })
-      .catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: targetUserRef.path,
-          operation: 'update',
-          requestResourceData: { role: newRole },
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        toast({
-          title: 'Ошибка',
-          description: 'Не удалось обновить роль пользователя. Проверьте права доступа.',
-          variant: 'destructive',
-        });
-      })
-      .finally(() => {
-        setUpdatingUserId(null);
+    try {
+      await updateDoc(targetUserRef, { role: newRole });
+      toast({
+        title: 'Успех',
+        description: `Роль пользователя ${targetUser.name} изменена на ${newRole}.`,
       });
+    } catch (serverError) {
+      const permissionError = new FirestorePermissionError({
+        path: targetUserRef.path,
+        operation: 'update',
+        requestResourceData: { role: newRole },
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось обновить роль пользователя. Проверьте права доступа.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingUserId(null);
+    }
   };
 
   if (!isReady || usersLoading || authLoading) {
