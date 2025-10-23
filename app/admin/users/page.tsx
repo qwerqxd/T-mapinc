@@ -3,7 +3,7 @@
 import { useAuth } from '@/contexts/auth-context';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase';
-import { collection, type CollectionReference } from 'firebase/firestore';
+import { collection, type CollectionReference, doc, updateDoc } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 import { AlertTriangle, Shield, User as UserIcon, Loader2 } from 'lucide-react';
 import {
@@ -26,11 +26,12 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { updateUserRole } from '@/ai/flows/update-user-role-flow';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function AdminUsersPage() {
   const { user: currentUser, isLoading: authLoading } = useAuth();
@@ -57,7 +58,9 @@ export default function AdminUsersPage() {
   }, [currentUser, authLoading, router]);
 
   const handleRoleChange = async (targetUser: User, newRole: 'admin' | 'user') => {
-    if (!currentUser || currentUser.uid === targetUser.uid) {
+    if (!currentUser || !firestore) return;
+    
+    if (currentUser.uid === targetUser.uid) {
       toast({
         title: 'Действие запрещено',
         description: 'Вы не можете изменить свою собственную роль.',
@@ -67,26 +70,31 @@ export default function AdminUsersPage() {
     }
     
     setUpdatingUserId(targetUser.uid);
-    try {
-      await updateUserRole({
-        editorId: currentUser.uid,
-        targetUserId: targetUser.uid,
-        newRole,
+    const targetUserRef = doc(firestore, 'users', targetUser.uid);
+    
+    updateDoc(targetUserRef, { role: newRole })
+      .then(() => {
+        toast({
+          title: 'Успех',
+          description: `Роль пользователя ${targetUser.name} изменена на ${newRole}.`,
+        });
+      })
+      .catch((serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: targetUserRef.path,
+          operation: 'update',
+          requestResourceData: { role: newRole },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({
+          title: 'Ошибка',
+          description: 'Не удалось обновить роль пользователя. Проверьте права доступа.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        setUpdatingUserId(null);
       });
-      toast({
-        title: 'Успех',
-        description: `Роль пользователя ${targetUser.name} изменена на ${newRole}.`,
-      });
-    } catch (error: any) {
-      // console.error('Failed to update user role:', error);
-      toast({
-        title: 'Ошибка',
-        description: error.message || 'Не удалось обновить роль пользователя.',
-        variant: 'destructive',
-      });
-    } finally {
-      setUpdatingUserId(null);
-    }
   };
 
   if (!isReady || usersLoading || authLoading) {
