@@ -1,0 +1,22 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "code-runner.runInTerminal": true,
+  "editor.guides.bracketPairs": true,
+  "editor.guides.bracketPairsHorizontal": false,
+  "editor.tabSize": 2,
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "path-intellisense.autoSlashAfterDirectory": true,
+  "path-intellisense.autoTriggerNextSuggestion": true,
+  "workbench.editor.enablePreview": true,
+  "workbench.iconTheme": "material-icon-theme",
+  "editor.formatOnSave": true,
+  "editor.unicodeHighlight.allowedLocales": {
+    "ru": true
+  }
+}
