@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:gen": "drizzle-kit generate",
+    "db:mig": "drizzle-kit migrate"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.22.0",
