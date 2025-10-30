@@ -12,7 +12,7 @@ const credentials: Credentials = {
   database: "postgres",
   password: process.env.DB_PASSWORD,
   ssl: {
-    ca: readFileSync(path.resolve(process.cwd(), "lib/db/prod-ca-2021.crt")).toString(),
+    ca: readFileSync(path.resolve(import.meta.dirname, "lib/db/prod-ca-2021.crt")).toString(),
   },
 }
 
