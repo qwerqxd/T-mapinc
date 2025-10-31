@@ -3,8 +3,6 @@ import type { Config } from "drizzle-kit"
 import { readFileSync } from "node:fs"
 import path from "node:path"
 
-import chalk from "chalk"
-
 type Credentials = Extract<Config, { dialect: "postgresql" }>["dbCredentials"]
 
 const credentials: Credentials = {
@@ -19,5 +17,3 @@ const credentials: Credentials = {
 }
 
 export default credentials
-
-console.log(chalk.red("We're on fire!!!"))
