@@ -1,5 +1,5 @@
 import { Map } from "@iminside/react-yandex-maps"
-import type { MapProps } from "@/types"
+import type { MapProps } from "@/types/MapProps"
 
 export default function YaMap(props: MapProps) {
   return (
