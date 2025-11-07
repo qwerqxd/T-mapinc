@@ -1,15 +1,31 @@
-import {withSentryConfig} from "@sentry/nextjs";
-import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs"
+import type { NextConfig } from "next"
 
-const nextConfig: NextConfig = {
+export const nextConfig: NextConfig = {
   /* config options here */
-};
+  webpack() {},
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: [
+          {
+            loader: "@svgr/webpack",
+            options: {
+              icon: true,
+            },
+          },
+        ],
+        as: "*.js",
+      },
+    },
+  },
+}
 
 export default withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
-  org: "kazlica",
+  org: "t-mapinc",
 
   project: "t-mapinc",
 
@@ -35,5 +51,5 @@ export default withSentryConfig(nextConfig, {
   // See the following for more information:
   // https://docs.sentry.io/product/crons/
   // https://vercel.com/docs/cron-jobs
-  automaticVercelMonitors: true
-});
+  automaticVercelMonitors: true,
+})

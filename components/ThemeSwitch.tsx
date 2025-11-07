@@ -33,8 +33,8 @@ export default function ThemeSwitch() {
             id={id}
             checked={resolvedTheme === "light"}
             onCheckedChange={handleChange}
-            thumbClassName="bg-bw-700"
-            className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 order-2 h-[inherit] w-auto outline-2 outline-bw-300 transition-colors duration-500 ease-linear dark:outline-bw-400 [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:transition-all [&_span]:duration-400 [&_span]:ease-explosive [&_span]:data-[state=checked]:translate-x-full [&_span]:data-[state=checked]:rtl:-translate-x-full"
+            thumbClassName="bg-accent-focus"
+            className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 order-2 h-[inherit] w-auto shadow-shadow transition-colors duration-500 ease-linear focus-visible:ring-2 focus-visible:ring-accent-focus [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:transition-all [&_span]:duration-400 [&_span]:ease-explosive [&_span]:data-[state=checked]:translate-x-full [&_span]:data-[state=checked]:rtl:-translate-x-full"
           />
           <span className="pointer-events-none relative ms-0.5 flex min-w-8 items-center justify-center text-center transition-transform duration-400 ease-explosive peer-data-[state=checked]:invisible peer-data-[state=unchecked]:translate-x-full peer-data-[state=unchecked]:rtl:-translate-x-full">
             <MoonStar />

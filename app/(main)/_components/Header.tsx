@@ -4,10 +4,11 @@ import { Mail } from "lucide-react"
 import PinIcon from "@/components/PinIcon"
 import ThemeSwitch from "@/components/ThemeSwitch"
 import Container from "@/components/Container"
+import { ReactNode } from "react"
 
-export default function Header() {
+export default function Header({ children }: { children?: ReactNode }) {
   return (
-    <header className="shadow shadow-bw-300/50">
+    <header className="mb-2 shadow shadow-shadow-b/60">
       <Container className="flex items-center justify-between gap-4 py-3">
         <h1 className="text-2xl font-semibold">
           <Link
@@ -39,6 +40,7 @@ export default function Header() {
               </li>
             </ul>
           </nav>
+          {children}
         </div>
       </Container>
     </header>
